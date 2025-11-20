@@ -1773,7 +1773,7 @@ app.get('/sitemap-static.xml', (req, res) => {
   const staticPages = [
     { url: '/', changefreq: 'monthly', priority: '0.8' },
     { url: '/home', changefreq: 'daily', priority: '1.0' },
-    { url: '/anime-list', changefreq: 'daily', priority: '0.9' },
+    { url: '/hentai-list', changefreq: 'daily', priority: '0.9' },
     { url: '/genre-list', changefreq: 'weekly', priority: '0.7' },
     { url: '/tahun-list', changefreq: 'yearly', priority: '0.7' },
     { url: '/jadwal', changefreq: 'daily', priority: '0.8' }
