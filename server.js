@@ -947,8 +947,8 @@ app.get('/home', async (req, res) => {
 
     res.render('home', {
       page: 'home',
-      pageTitle: `Streaming Download Anime Hentai Subtitle Indonesia - ${siteName}`,
-      pageDescription: `Nonton anime hentai subtitle Indonesia terbaru di ${siteName}. Update setiap hari.`,
+      pageTitle: `${siteName} - AV Hentai Subtitle Indonesia`,
+      pageDescription: `${siteName} Nonton anime hentai subtitle indonesia. Nikmati sensasi menonton anime hentai, ecchi, uncensored, sub indo kualitas video HD 1080p 720p 480p.`,
       pageImage: `${SITE_URL}/images/default.jpg`,
       pageUrl: SITE_URL + req.originalUrl,
       episodes: formattedEpisodes,
@@ -1399,6 +1399,50 @@ app.get('/anime/:slug', async (req, res) => {
   }
 });
 
+//redirect old pagination URLs to new format
+
+function handleOldPagination(req, res, newBasePath) {
+  const pageNumber = req.params.pageNumber;
+  // Pastikan pageNumber adalah angka
+  if (pageNumber && /^\d+$/.test(pageNumber)) {
+    const newUrl = `${newBasePath}?page=${pageNumber}`;
+    res.redirect(301, newUrl); // 301 Redirect Permanen
+  } else {
+    // Jika /page/bukan-angka, redirect ke basisnya
+    res.redirect(301, newBasePath);
+  }
+}
+
+// Redirect untuk /anime-list/page/..
+app.get('/anime-list/page/:pageNumber(\\d+)/?', (req, res) => {
+  handleOldPagination(req, res, '/hentai-list');
+});
+
+// Redirect untuk /genre/slug/page/..
+app.get('/genre/:slug/page/:pageNumber(\\d+)/?', (req, res) => {
+  handleOldPagination(req, res, `/genre/${req.params.slug}`);
+});
+
+// Redirect untuk /status/slug/page/..
+app.get('/status/:slug/page/:pageNumber(\\d+)/?', (req, res) => {
+  handleOldPagination(req, res, `/status/${req.params.slug}`);
+});
+
+// Redirect untuk /type/slug/page/..
+app.get('/type/:slug/page/:pageNumber(\\d+)/?', (req, res) => {
+  handleOldPagination(req, res, `/type/${req.params.slug}`);
+});
+
+// Redirect untuk /studio/slug/page/..
+app.get('/studio/:slug/page/:pageNumber(\\d+)/?', (req, res) => {
+  handleOldPagination(req, res, `/studio/${req.params.slug}`);
+});
+
+// Redirect untuk /tahun/tahun/page/..
+app.get('/tahun/:year/page/:pageNumber(\\d+)/?', (req, res) => {
+  handleOldPagination(req, res, `/tahun/${req.params.year}`);
+});
+
 // RUTE REDIRECT (URL LAMA)
 app.get('/nonton/:episodeSlug(*)', (req, res) => {
   const episodeSlug = req.params.episodeSlug; 
@@ -1441,172 +1485,6 @@ app.get('/bookmarks', (req, res) => {
     });
   } catch (error) { console.error("Bookmarks Page Error:", error); res.status(500).send('Terjadi kesalahan.'); }
 });
-
-// ===================================
-// --- RUTE PROFIL PENGGUNA ---
-// ===================================
-
-app.get('/profile', isLoggedIn, async (req, res) => {
-  try {
-    const user = await User.findById(req.session.userId).lean();
-    if (!user) {
-      return res.redirect('/login');
-    }
-
-    res.render('profile', {
-      page: 'profile',
-      pageTitle: `Edit Profil - ${siteName}`,
-      pageDescription: 'Kelola informasi profil Anda.',
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: SITE_URL + req.originalUrl,
-      query: '',
-      success: req.query.success,
-      error: req.query.error,
-      userData: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        avatarUrl: user.avatarUrl.startsWith('http') ? user.avatarUrl : (SITE_URL + user.avatarUrl)
-      }
-    });
-  } catch (error) {
-    console.error("Profile Page Error:", error);
-    res.redirect('/home?error=Gagal memuat profil');
-  }
-});
-
-app.post('/profile/update/avatar', isLoggedIn, upload.single('avatarImage'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.redirect('/profile?error=Anda harus memilih file gambar');
-    }
-
-    const user = await User.findById(req.session.userId);
-
-    const extension = path.extname(req.file.originalname);
-    const newFilename = `avatar_${user._id}${extension}`;
-    const localDiskPath = path.join(UPLOAD_DISK_PATH, newFilename);
-    const webPath = `/${UPLOAD_WEB_PATH_NAME}/${newFilename}`; 
-
-    if (user.avatarUrl && user.avatarUrl !== '/images/default-avatar.png') {
-      try {
-        const oldPath = path.join(UPLOAD_DISK_PATH, path.basename(user.avatarUrl));
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-          console.log(`Avatar lama dihapus: ${oldPath}`);
-        }
-      } catch (err) {
-        console.warn(`Gagal menghapus avatar lama: ${err.message}`);
-      }
-    }
-
-    fs.writeFileSync(localDiskPath, req.file.buffer);
-
-    user.avatarUrl = webPath;
-    await user.save();
-
-    console.log(`Avatar diperbarui untuk ${user.username} ke ${webPath}`);
-    res.redirect('/profile?success=Avatar berhasil diperbarui');
-
-  } catch (error) {
-    console.error("Avatar Upload Error:", error);
-    res.redirect(`/profile?error=${encodeURIComponent(error.message)}`);
-  }
-});
-
-app.post('/profile/update/info', isLoggedIn, async (req, res) => {
-  try {
-    const { username, email } = req.body;
-    const userId = req.session.userId;
-
-    if (!username || !email) {
-      return res.redirect('/profile?error=Username dan Email tidak boleh kosong');
-    }
-
-    const existingUser = await User.findOne({
-      $or: [{ username: username.toLowerCase() }, { email: email.toLowerCase() }],
-      _id: { $ne: userId } 
-    });
-
-    if (existingUser) {
-      return res.redirect('/profile?error=Username atau Email tersebut sudah digunakan');
-    }
-
-    const user = await User.findById(userId);
-    user.username = username;
-    user.email = email;
-    await user.save();
-
-    req.session.username = user.username;
-
-    res.redirect('/profile?success=Informasi berhasil diperbarui');
-
-  } catch (error) {
-    console.error("Info Update Error:", error);
-    res.redirect(`/profile?error=${encodeURIComponent(error.message)}`);
-  }
-});
-
-app.post('/profile/update/password', isLoggedIn, async (req, res) => {
-  try {
-    const { currentPassword, newPassword, confirmPassword } = req.body;
-    const userId = req.session.userId;
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      return res.redirect('/profile?error=Semua field password harus diisi');
-    }
-    if (newPassword !== confirmPassword) {
-      return res.redirect('/profile?error=Password baru tidak cocok');
-    }
-    if (newPassword.length < 6) {
-      return res.redirect('/profile?error=Password baru minimal 6 karakter');
-    }
-
-    const user = await User.findById(userId);
-
-    const isMatch = await user.comparePassword(currentPassword);
-    if (!isMatch) {
-      return res.redirect('/profile?error=Password saat ini salah');
-    }
-
-    user.password = newPassword;
-    await user.save(); 
-
-    res.redirect('/profile?success=Password berhasil diperbarui');
-
-  } catch (error) {
-    console.error("Password Update Error:", error);
-    res.redirect(`/profile?error=${encodeURIComponent(error.message)}`);
-  }
-});
-
-app.post('/profile/remove/avatar', isLoggedIn, async (req, res) => {
-  try {
-    const user = await User.findById(req.session.userId);
-    if (!user) return res.redirect('/login');
-
-    if (user.avatarUrl && user.avatarUrl !== '/images/default-avatar.png') {
-      try {
-        const oldPath = path.join(UPLOAD_DISK_PATH, path.basename(user.avatarUrl));
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-          console.log(`Avatar lama dihapus: ${oldPath}`);
-        }
-      } catch (err) {
-        console.warn(`Gagal menghapus avatar lama: ${err.message}`);
-      }
-    }
-
-    user.avatarUrl = '/images/default-avatar.png';
-    await user.save();
-
-    res.redirect('/profile?success=Avatar berhasil dihapus');
-  } catch (error) {
-    console.error("Avatar Remove Error:", error);
-    res.redirect(`/profile?error=${encodeURIComponent(error.message)}`);
-  }
-});
-
 
 // ===================================
 // --- RUTE AUTENTIKASI PENGGUNA ---
@@ -1775,55 +1653,6 @@ app.get('/api/genre/uncensored', async (req, res) => {
   } catch (error) {
     console.error('Error fetching API /api/genre/uncensored:', error);
     res.status(500).json({ error: 'Gagal memuat data' });
-  }
-});
-
-// --- Rute API Komentar ---
-app.get('/api/comments/:episodeId', async (req, res) => {
-  try {
-    const episodeId = req.params.episodeId;
-    if (!mongoose.Types.ObjectId.isValid(episodeId)) {
-      return res.status(400).json({ error: 'Episode ID tidak valid' });
-    }
-    const comments = await Comment.find({ episode: episodeId })
-      .populate('user', 'username avatarUrl') // <-- Ambil avatar
-      .sort({ createdAt: -1 }) 
-      .lean();
-    res.json(comments);
-  } catch (error) {
-    console.error("API GET /api/comments Error:", error);
-    res.status(500).json({ error: 'Gagal mengambil komentar' });
-  }
-});
-
-app.post('/api/comments', isLoggedIn, async (req, res) => {
-  try {
-    const { episodeId, content, parentId } = req.body;
-    const userId = req.session.userId; 
-
-    if (!mongoose.Types.ObjectId.isValid(episodeId)) {
-      return res.status(400).json({ error: 'Episode ID tidak valid' });
-    }
-    if (!content || content.trim() === '') {
-      return res.status(400).json({ error: 'Komentar tidak boleh kosong' });
-    }
-    const commentData = {
-      episode: episodeId,
-      user: userId,
-      content: content.trim()
-    };
-    if (parentId && mongoose.Types.ObjectId.isValid(parentId)) {
-      commentData.parent = parentId;
-    }
-    const newComment = new Comment(commentData);
-    await newComment.save();
-    const populatedComment = await Comment.findById(newComment._id)
-      .populate('user', 'username avatarUrl') // <-- Ambil avatar
-      .lean();
-    res.status(201).json(populatedComment); 
-  } catch (error) {
-    console.error("API POST /api/comments Error:", error);
-    res.status(500).json({ error: 'Gagal mengirim komentar' });
   }
 });
 
