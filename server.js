@@ -1453,6 +1453,16 @@ app.get('/nonton/:episodeSlug(*)', (req, res) => {
   }
 });
 
+app.get('/page/:pageNumber(\\d+)/?', (req, res) => {
+  res.redirect(301, `/home?page=${req.params.pageNumber}`);
+});
+
+app.get('/:slug-episode-:episode(\\d+)-subtitle-indonesia/?', (req, res) => {
+  const { slug, episode } = req.params;
+
+  res.redirect(301, `/anime/${slug}/${episode}`);
+});
+
 app.get('/safelink', (req, res) => {
   const base64Url = req.query.url;
   if (!base64Url) {
