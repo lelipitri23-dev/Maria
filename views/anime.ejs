@@ -1,0 +1,152 @@
+<%- include('partials/header', { /* data header */ }) %>
+
+<main class="flex-1 w-full min-w-0">
+  <article class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
+    
+    <header class="p-5 border-b border-[#33303f]">
+      <h1 class="text-xl md:text-2xl font-bold text-[var(--text-main)] mb-1"><%= data.title %> Subtitle Indonesia</h1>
+      <div class="text-xs text-muted">
+         <span>Admin</span> • <span><%= new Date(data.updatedAt || Date.now()).toLocaleString('id-ID') %></span>
+      </div>
+    </header>
+
+    <div class="p-5">
+      <div class="flex flex-col md:flex-row gap-6">
+         
+         <div class="w-full md:w-[240px] flex-shrink-0">
+           <img src="<%= data.imageUrl || '/images/default.jpg' %>" class="w-full rounded-md shadow-lg border border-[#33303f]" alt="<%= data.title %>">
+           
+           <div class="mt-4 text-center">
+             <button id="favorit1" data-animeid="<%= data._id %>" class="w-full bg-[#4a4a4a] hover:bg-[#666] text-white py-2 rounded-full font-bold text-sm transition-all shadow-md">
+               Memuat...
+             </button>
+           </div>
+        </div>
+
+        <div class="flex-1">
+           
+           <div class="mb-8 border-b border-[#33303f] pb-6">
+              <h3 class="text-lg font-bold text-[var(--text-main)] mb-4 border-l-4 border-primary pl-3">Daftar Episode</h3>
+              
+              <% if (data.episodes && data.episodes.length > 0) { %>
+                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                  <% data.episodes.forEach((ep, index) => { 
+                      let displayTitle = ep.title; 
+                      const match = ep.title.match(/Episode\s+(\d+)/i);
+                      if (match) displayTitle = 'Episode ' + parseInt(match[1]);
+                  %>
+                    <a href="<%= ep.url %>" class="block bg-darker hover:bg-primary hover:text-white border border-[#33303f] hover:border-primary text-[var(--text-main)] text-center py-2 px-1 text-xs font-medium rounded transition-colors truncate" title="<%= ep.title %>">
+                      <%= displayTitle %>
+                    </a>
+                  <% }) %>
+                </div>
+              <% } else { %>
+                <p class="text-muted text-sm">Belum ada episode.</p>
+              <% } %>
+           </div>
+
+           <h3 class="text-sm font-bold text-[var(--text-main)] mb-2 uppercase text-muted">Sinopsis</h3>
+           <p class="text-sm text-muted leading-relaxed mb-6 text-justify"><%= data.synopsis %></p>
+           
+           <div class="bg-darker rounded-lg border border-[#33303f] p-4 mb-6">
+             <table class="w-full text-sm text-left">
+               <tbody class="divide-y divide-[#33303f]">
+                 <% if (data.alternativeTitle) { %>
+                   <tr><th class="py-2 text-muted w-24">Alternatif</th><td class="py-2 text-[var(--text-main)]"><%= data.alternativeTitle %></td></tr>
+                 <% } %>
+                 
+                 <tr>
+                   <th class="py-2 text-muted">Tipe</th>
+                   <td class="py-2 font-bold">
+                     <a href="/type/<%= slugify(data.info.Type) %>" class="text-primary hover:text-[var(--text-main)] transition-colors">
+                       <%= data.info.Type %>
+                     </a>
+                   </td>
+                 </tr>
+                 
+                 <tr><th class="py-2 text-muted">Jumlah Ep</th><td class="py-2 text-[var(--text-main)]"><%= data.episodes.length %></td></tr>
+                 
+                 <tr>
+                   <th class="py-2 text-muted">Genre</th>
+                   <td class="py-2 text-[var(--text-main)]">
+                      <% data.genres.forEach((g, i) => { %>
+                        <a href="/genre/<%= slugify(g) %>" class="hover:text-primary transition-colors"><%= g %></a><%= i < data.genres.length - 1 ? ', ' : '' %>
+                      <% }) %>
+                   </td>
+                 </tr>
+                 
+                 <tr>
+                   <th class="py-2 text-muted">Status</th>
+                   <td class="py-2">
+                     <a href="/status/<%= slugify(data.info.Status) %>" class="bg-primary hover:bg-primary-hover text-white px-2 py-0.5 rounded text-xs transition-colors inline-block">
+                       <%= data.info.Status %>
+                     </a>
+                   </td>
+                 </tr>
+                 
+                 <tr>
+                   <th class="py-2 text-muted">Rilis</th>
+                   <td class="py-2 text-[var(--text-main)]">
+                     <% const yearMatch = data.info.Released ? data.info.Released.match(/\d{4}/) : null; %>
+                     <% if (yearMatch) { %>
+                        <a href="/tahun/<%= yearMatch[0] %>" class="hover:text-primary transition-colors"><%= data.info.Released %></a>
+                     <% } else { %>
+                        <%= data.info.Released %>
+                     <% } %>
+                   </td>
+                 </tr>
+               </tbody>
+             </table>
+           </div>
+
+           <div class="pt-4 border-t border-[#33303f]">
+             <p class="text-[11px] text-muted leading-relaxed text-justify italic bg-darker/50 p-3 rounded border border-[#33303f]">
+                <%= data.title %> Sub Indo, 
+                Nonton <%= data.title %> Sub Indo, 
+                <%= data.title %> Batch, 
+                <%= data.title %> 480p 720p 360p, 
+                <%= data.title %> Mp4 Sub Indo, 
+                Nonton Anime <%= data.title %> Sub Indo, 
+                <%= data.title %> MKV Sub Indo, 
+                <%= data.title %> Sub Indo Mp4 untuk HP, Android, Tablet dan lain sebagainya.
+             </p>
+           </div>
+
+        </div>
+      </div>
+      
+    </div>
+  </article>
+
+  <% if (latestSeries && latestSeries.length > 0) { %>
+    <div class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
+      <div class="flex items-center justify-between p-4 border-b border-[#33303f]">
+        <h3 class="text-lg font-medium text-[var(--text-main)] uppercase border-l-4 border-primary pl-3">Series Terbaru</h3>
+        <a href="/anime-list" class="text-xs font-bold bg-primary text-white px-3 py-1 rounded hover:bg-primary-hover">Lihat Semua</a>
+      </div>
+      <div class="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <% latestSeries.forEach((anime) => { %>
+            <article class="group relative bg-darker rounded-md overflow-hidden border border-[#33303f] hover:border-primary hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-lg">
+              <a href="/anime/<%= encodeURIComponent(anime.pageSlug) %>" title="<%= anime.title %>">
+                 <div class="relative aspect-[2/3] overflow-hidden bg-gray-800">
+                  <img src="<%= anime.imageUrl || '/images/default.jpg' %>" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 lazy-load opacity-0" data-src="<%= anime.imageUrl || '/images/default.jpg' %>" alt="<%= anime.title %>">
+                  <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                     <i class="fas fa-play text-3xl text-white"></i>
+                  </div>
+                  <span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">
+                    <%= anime.info.Status || '?' %>
+                  </span>
+                </div>
+                <div class="p-3">
+                  <h2 class="text-xs sm:text-sm font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors"><%= anime.title %></h2>
+                </div>
+              </a>
+            </article>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
+</main>
+
+<%- include('partials/sidebar', { page: page }) %>
+<%- include('partials/footer', { page: page }) %>

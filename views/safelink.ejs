@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title><%= pageTitle %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #000; color: #ccc; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4 bg-cover bg-center bg-no-repeat bg-fixed" id="bg-body">
+    
+    <div class="w-full max-w-3xl bg-black/80 backdrop-blur-sm rounded-xl border border-white/10 p-8 text-center shadow-2xl">
+        
+        <div class="bg-white/5 border border-dashed border-white/20 rounded h-24 flex items-center justify-center mb-6 text-gray-500 text-sm">
+            Area Iklan 1 (728x90)
+        </div>
+
+        <div class="py-8">
+             <div id="countdown" class="inline-block">
+                 <span class="bg-gray-700 text-white px-6 py-3 rounded font-bold cursor-wait">
+                     Tunggu sebentar...
+                 </span>
+             </div>
+        </div>
+
+        <div class="bg-white/5 border border-dashed border-white/20 rounded h-24 flex items-center justify-center mt-6 text-gray-500 text-sm">
+            Area Iklan 2 (728x90)
+        </div>
+
+        <footer class="mt-8 text-xs text-gray-500">
+            <a href="/home" class="hover:text-pink-500 transition-colors">Kembali ke <%= siteName %></a>
+        </footer>
+
+    </div>
+
+    <script>
+        // Script Background Random
+        const backgrounds = [
+          '/images/backgrounds/bg1.webp', /* Tambahkan URL gambar lain */
+        ];
+        const randomImage = backgrounds[Math.floor(Math.random() * backgrounds.length)];
+        if(randomImage) document.getElementById('bg-body').style.backgroundImage = `url(${randomImage})`;
+
+        // Countdown Logic
+        var timeleft = 10;
+        var encodedUrl = "<%= base64Url %>";
+        var downloadTimer = setInterval(function () {
+            if (timeleft <= 0) {
+                clearInterval(downloadTimer);
+                try {
+                    var decodedUrl = atob(encodedUrl);
+                    document.getElementById("countdown").innerHTML =
+                        `<a href="http://ouo.io/qs/963o2hK1?s=${decodedUrl}" rel="nofollow external" target="_blank" class="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded font-bold shadow-lg transition-colors animate-pulse">Lewati Safelink</a>`;
+                } catch (e) {
+                    document.getElementById("countdown").innerHTML = "<span class='text-red-500 font-bold'>Error Link</span>";
+                }
+            } else {
+                document.getElementById("countdown").innerHTML = 
+                    `<span class="bg-gray-800 text-white px-6 py-3 rounded border border-gray-700 font-mono">${timeleft} detik lagi</span>`;
+            }
+            timeleft -= 1;
+        }, 1000);
+    </script>
+</body>
+</html>

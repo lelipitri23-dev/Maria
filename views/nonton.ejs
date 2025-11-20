@@ -1,0 +1,239 @@
+<%- include('partials/header', { /* data header */ }) %>
+
+<% 
+  const filteredStreams = data.streaming ? data.streaming.filter(stream => stream.name.toLowerCase() !== 'bonus') : [];
+%>
+
+<main class="flex-1 w-full min-w-0">
+  <article class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
+    
+    <header class="p-4 border-b border-[#33303f]">
+      <h1 class="text-xl md:text-2xl font-bold text-[var(--text-main)] mb-2"><%= data.title %> Subtitle Indonesia</h1>
+      <div class="text-xs text-muted flex gap-2 items-center">
+        <span class="bg-primary/10 text-primary px-2 py-0.5 rounded">Admin</span>
+        <span>•</span>
+        <span><%= new Date(data.createdAt || Date.now()).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) %></span>
+      </div>
+    </header>
+
+    <div class="bg-black relative w-full aspect-video">
+      <div id="embed_holder" class="w-full h-full">
+        <% if (filteredStreams.length > 0) { 
+            const firstStream = filteredStreams[0];
+            const streamName = firstStream.name.toLowerCase();
+            let firstIframeString;
+            if (['mirror', 'viplay', 'earnvids'].includes(streamName)) {
+              const decodedEmbedUrl = Buffer.from(firstStream.url, 'base64').toString('utf8');
+              firstIframeString = `<iframe src="${decodedEmbedUrl}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
+            } else {
+              firstIframeString = `<iframe src="/player?url=${firstStream.url}&title=${encodeURIComponent(data.title)}&poster=${encodeURIComponent(pageImage)}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
+            }
+        %>
+          <div id="pembed" class="w-full h-full" data-default="<%= Buffer.from(firstIframeString).toString('base64') %>">
+            <script>
+              document.write(atob(document.getElementById('pembed').getAttribute('data-default')));
+            </script>
+          </div>
+        <% } else { %>
+           <div class="flex items-center justify-center h-full text-white">Maaf, tidak ada link stream.</div>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="bg-darker p-3 flex flex-col lg:flex-row justify-between items-center gap-4 border-t border-[#33303f]">
+      
+      <div class="flex items-center gap-2 w-full lg:w-auto justify-center lg:justify-start">
+        <select class="bg-card text-[var(--text-main)] text-sm border border-[#444] rounded px-3 py-1.5 w-full md:w-auto cursor-pointer focus:outline-none focus:border-primary" onchange="loadMi(this.options[this.selectedIndex])">
+           <% filteredStreams.forEach((stream, index) => { 
+               let iframeString;
+               const sName = stream.name.toLowerCase();
+               if (['mirror', 'viplay', 'earnvids'].includes(sName)) {
+                  const decUrl = Buffer.from(stream.url, 'base64').toString('utf8');
+                  iframeString = `<iframe src="${decUrl}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
+               } else {
+                  iframeString = `<iframe src="/player?url=${stream.url}&title=${encodeURIComponent(data.title)}&poster=${encodeURIComponent(pageImage)}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
+               }
+               const base64Iframe = Buffer.from(iframeString).toString('base64');
+           %>
+           <option value="<%= index %>" data-em="<%= base64Iframe %>" <%= index === 0 ? 'selected' : '' %>>
+              <%= stream.name %>
+           </option>
+           <% }) %>
+        </select>
+
+        <button class="light text-xs bg-card hover:bg-primary hover:text-white text-[var(--text-main)] px-3 py-2 rounded transition-colors whitespace-nowrap border border-[#444]">
+          Matikan Lampu
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2 w-full lg:w-auto justify-center lg:justify-end flex-wrap">
+         <% if (nav.prev) { %>
+           <a href="<%= nav.prev.url %>" class="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-4 py-2 rounded transition-colors">« Prev</a>
+         <% } else { %>
+           <span class="bg-darker text-muted text-xs font-bold px-4 py-2 rounded cursor-not-allowed border border-[#444]">« Prev</span>
+         <% } %>
+         
+         <a href="<%= nav.all %>" class="bg-card hover:bg-primary hover:text-white text-[var(--text-main)] text-xs font-bold px-4 py-2 rounded transition-colors border border-[#444]">Semua</a>
+
+         <% if (nav.next) { %>
+           <a href="<%= nav.next.url %>" class="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-4 py-2 rounded transition-colors">Next »</a>
+         <% } else { %>
+           <span class="bg-darker text-muted text-xs font-bold px-4 py-2 rounded cursor-not-allowed border border-[#444]">Next »</span>
+         <% } %>
+      </div>
+
+    </div>
+
+    <div class="p-5">
+      <div class="flex flex-col md:flex-row gap-6">
+        
+        <div class="w-full md:w-[200px] flex-shrink-0 mx-auto md:mx-0">
+           <img src="<%= pageImage %>" class="w-full rounded-md shadow-lg object-cover border border-[#33303f]" alt="<%= data.title %>">
+           <div class="text-center mt-4">
+   <button id="singletonform" class="w-full bg-[#d9534f] hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-bold transition-colors shadow-md flex items-center justify-center gap-2">
+     <i class="fas fa-exclamation-triangle"></i> Lapor Error!
+   </button>
+</div>
+        </div>
+
+        <div class="flex-1 min-w-0">
+            
+            <div class="mb-6">
+                <h2 class="text-lg font-bold text-[var(--text-main)] mb-2"><%= data.title %></h2>
+                <p class="text-sm text-muted mb-1">
+                    <strong>Genre:</strong> 
+                    <% if (typeof parentAnime !== 'undefined' && parentAnime.genres) { %>
+                      <%= parentAnime.genres.join(', ') %>
+                    <% } %>
+                </p>
+            </div>
+
+            <% if (parentAnime && parentAnime.episodes && parentAnime.episodes.length > 0) { %>
+              <div class="mb-8 border-b border-[#33303f] pb-6">
+                 <h3 class="text-sm font-bold text-[var(--text-main)] mb-3 border-l-4 border-primary pl-3 uppercase">Daftar Episode</h3>
+                 <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                    <% parentAnime.episodes.forEach(ep => { 
+                         const isCurrent = (data.episodeSlug === ep.url);
+                         let displayTitle = ep.title;
+                         const match = ep.title.match(/Episode\s+(\d+)/i);
+                         if (match) displayTitle = 'Ep ' + parseInt(match[1]);
+                    %>
+                      <a href="/anime<%= ep.url %>" class="block <%= isCurrent ? 'bg-primary text-white border-primary' : 'bg-darker text-[var(--text-main)] border-[#33303f] hover:bg-primary hover:text-white hover:border-primary' %> border text-center py-1.5 px-1 text-[10px] font-bold rounded transition-colors truncate" title="<%= ep.title %>">
+                         <%= displayTitle %>
+                      </a>
+                    <% }) %>
+                 </div>
+              </div>
+            <% } %>
+
+            <h3 class="text-sm font-bold text-[var(--text-main)] mb-2 uppercase text-muted">Sinopsis</h3>
+            <p class="text-sm text-muted leading-relaxed mb-6">
+               <%= (typeof parentAnime !== 'undefined' && parentAnime.synopsis) ? parentAnime.synopsis : '...' %>
+            </p>
+            
+            <% if(data.downloads && data.downloads.length > 0) { %>
+              <div class="bg-darker p-4 rounded border border-[#33303f]">
+                <% data.downloads.forEach(dl => { %>
+                  <div class="mb-3 last:mb-0">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded"><%= dl.quality %></span>
+                        <div class="h-px bg-[#33303f] flex-1"></div>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                      <% dl.links.forEach(link => { %>
+                        <a href="/safelink?url=<%= link.url %>" target="_blank" class="bg-card hover:bg-primary hover:text-white text-[var(--text-main)] text-[10px] px-3 py-1.5 rounded transition-colors border border-[#444]">
+                          <%= link.host %>
+                        </a>
+                      <% }) %>
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+            <% } %>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="p-5 border-t border-[#33303f]">
+      <h3 class="text-base font-bold text-[var(--text-main)] mb-4">Komentar</h3>
+      <div id="disqus_thread"></div>
+      <script>
+        var disqus_config = function () {
+          this.page.url = '<%= pageUrl %>';
+          this.page.identifier = '<%= data._id %>';
+        };
+        (function() {
+          var d = document, s = document.createElement('script');
+          s.src = 'https://hentaisubindo.disqus.com/embed.js'; 
+          s.setAttribute('data-timestamp', +new Date());
+          (d.head || d.body).appendChild(s);
+        })();
+      </script>
+    </div>
+
+  </article>
+
+  <% if (latestSeries && latestSeries.length > 0) { %>
+    <div class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
+      <div class="flex items-center justify-between p-4 border-b border-[#33303f]">
+        <h3 class="text-lg font-medium text-[var(--text-main)] uppercase border-l-4 border-primary pl-3">Series Terbaru</h3>
+        <a href="/anime-list" class="text-xs font-bold bg-primary text-white px-3 py-1 rounded hover:bg-primary-hover">Lihat Semua</a>
+      </div>
+      <div class="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <% latestSeries.forEach((anime) => { %>
+            <article class="group relative bg-darker rounded-md overflow-hidden border border-[#33303f] hover:border-primary hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-lg">
+              <a href="/anime/<%= encodeURIComponent(anime.pageSlug) %>" title="<%= anime.title %>">
+                 <div class="relative aspect-[2/3] overflow-hidden bg-gray-800">
+                  <img src="<%= anime.imageUrl || '/images/default.jpg' %>" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 lazy-load opacity-0" data-src="<%= anime.imageUrl || '/images/default.jpg' %>" alt="<%= anime.title %>">
+                  <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                     <i class="fas fa-play text-3xl text-white"></i>
+                  </div>
+                  <span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">
+                    <%= anime.info.Status || '?' %>
+                  </span>
+                </div>
+                <div class="p-3">
+                  <h2 class="text-xs sm:text-sm font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors"><%= anime.title %></h2>
+                </div>
+              </a>
+            </article>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
+</main>
+
+<%- include('partials/sidebar', { page: page }) %>
+
+<div id="shadow" class="fixed inset-0 bg-black/95 z-[999] hidden transition-opacity duration-300"></div>
+<script>
+  $(document).ready(function () {
+    $(".light").click(function () {
+      $("#shadow").fadeToggle();
+      $(this).toggleClass("relative z-[1001] bg-white text-black hover:bg-gray-200 border-transparent");
+      var text = $(this).text().trim();
+      if (text === "Matikan Lampu") $(this).text("Hidupkan Lampu");
+      else $(this).text("Matikan Lampu");
+    });
+  });
+  function loadMi(el) {
+    var embed = el.getAttribute('data-em');
+    if (!embed) embed = document.getElementById('pembed').getAttribute('data-default');
+    load_embed(embed);
+  }
+  function load_embed(embed) {
+    var player = jQuery("#pembed");
+    player.css({'background': '#000 url(/loading.svg) center no-repeat', 'background-size': '50px'});
+    player.html(""); 
+    if (embed) {
+        try {
+            var decoded = atob(embed);
+            player.html(decoded);
+            setTimeout(function(){ player.removeAttr('style'); }, 5000);
+        } catch (e) { console.error("Error player:", e); }
+    }
+  }
+</script>
+
+<%- include('partials/footer', { page: page }) %>

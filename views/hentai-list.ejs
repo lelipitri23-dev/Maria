@@ -1,0 +1,96 @@
+<%- include('partials/header', { /* data header */ }) %>
+
+<main class="flex-1 w-full min-w-0">
+  <div class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
+    
+    <div class="flex items-center justify-between p-3 md:p-5 border-b border-[#33303f]">
+      <h1 class="text-base md:text-lg font-bold text-[var(--text-main)] uppercase border-l-4 border-primary pl-3 leading-tight">
+        <%= (typeof pageTitle !== 'undefined') ? pageTitle : 'Daftar Anime' %>
+      </h1>
+      <% if (typeof totalCount !== 'undefined') { %>
+        <span class="text-[10px] md:text-xs font-bold bg-primary/10 text-primary px-2 py-1 rounded-full border border-primary/20 whitespace-nowrap ml-2">
+          Total: <%= totalCount %>
+        </span>
+      <% } %>
+    </div>
+
+    <div class="p-3 md:p-5">
+      <% if (!animes || animes.length === 0) { %>
+        <div class="text-center py-10">
+          <i class="fas fa-box-open text-4xl text-muted mb-3"></i>
+          <p class="text-muted">Tidak ada anime yang ditemukan.</p>
+        </div>
+      <% } else { %>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+          <% animes.forEach(anime => { %>
+            <article class="group relative bg-darker rounded-md overflow-hidden border border-[#33303f] hover:border-primary hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-lg">
+              <a href="/anime/<%= anime.pageSlug %>" title="<%= anime.title %>">
+                
+                <div class="relative aspect-[2/3] overflow-hidden bg-gray-800">
+                  <img src="<%= anime.imageUrl || '/images/default.jpg' %>" 
+                       class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 lazy-load opacity-0"
+                       data-src="<%= anime.imageUrl || '/images/default.jpg' %>"
+                       alt="<%= anime.title %>">
+                  
+                  <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                    <div class="w-10 h-10 rounded-full bg-primary border-2 border-white text-white flex items-center justify-center transform scale-0 group-hover:scale-100 transition-transform duration-300">
+                      <i class="fas fa-play ml-1"></i>
+                    </div>
+                  </div>
+
+                  <% if (anime.type || (anime.info && anime.info.Type)) { %>
+                    <span class="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded z-10 shadow">
+                      <%= anime.type || anime.info.Type %>
+                    </span>
+                  <% } %>
+                  
+                  <span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">
+                    <%= anime.status || (anime.info ? anime.info.Status : '?') %>
+                  </span>
+                </div>
+
+                <div class="p-2 md:p-3 flex flex-col h-[80px] justify-between">
+                  <h2 class="text-xs sm:text-sm font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                    <%= anime.title %>
+                  </h2>
+                  <div class="flex justify-between items-end text-[10px] text-muted mt-1 border-t border-white/5 pt-1">
+                    <span>
+                      <% if (anime.episodes) { %> Ep <%= anime.episodes.length %> <% } else { %> ? Ep <% } %>
+                    </span>
+                    <span>
+                      <% if (anime.released || (anime.info && anime.info.Released)) { %>
+                        <%= (anime.released || anime.info.Released).split(' ')[0] %>
+                      <% } else { %> ? <% } %>
+                    </span>
+                  </div>
+                </div>
+              </a>
+            </article>
+          <% }) %>
+        </div>
+
+        <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+          <div class="flex justify-center items-center gap-1.5 md:gap-2 py-6 mt-4 border-t border-[#33303f]">
+            <% const pageSeparator = baseUrl.includes('?') ? '&' : '?'; %>
+            <% if (currentPage > 1) { %> 
+              <a href="<%= baseUrl %><%= pageSeparator %>page=<%= currentPage - 1 %>" class="h-8 px-3 flex items-center justify-center bg-darker border border-[#33303f] rounded text-[10px] md:text-xs font-bold text-[var(--text-main)] hover:bg-primary hover:text-white transition-colors">« Prev</a>
+            <% } else { %>
+               <span class="h-8 px-3 flex items-center justify-center bg-darker border border-[#33303f] rounded text-[10px] md:text-xs font-bold text-muted opacity-50 cursor-not-allowed">« Prev</span>
+            <% } %>
+
+            <span class="h-8 px-3 flex items-center justify-center bg-primary text-white rounded text-[10px] md:text-xs font-bold shadow-lg"><%= currentPage %></span>
+
+            <% if (currentPage < totalPages) { %> 
+              <a href="<%= baseUrl %><%= pageSeparator %>page=<%= parseInt(currentPage) + 1 %>" class="h-8 px-3 flex items-center justify-center bg-darker border border-[#33303f] rounded text-[10px] md:text-xs font-bold text-[var(--text-main)] hover:bg-primary hover:text-white transition-colors">Next »</a>
+            <% } else { %> 
+               <span class="h-8 px-3 flex items-center justify-center bg-darker border border-[#33303f] rounded text-[10px] md:text-xs font-bold text-muted opacity-50 cursor-not-allowed">Next »</span>
+            <% } %>
+          </div>
+        <% } %>
+      <% } %>
+    </div>
+  </div>
+</main>
+
+<%- include('partials/sidebar', { page: page }) %>
+<%- include('partials/footer', { page: page }) %>

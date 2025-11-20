@@ -1,0 +1,58 @@
+<%- include('../admin/partials/header', { /* data header */ }) %>
+<a href="/admin" class="admin-back-btn">« Kembali ke Dasbor</a>
+<h1>Daftar Laporan Error</h1>
+
+<style>
+  .reports-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  .reports-table th, .reports-table td {
+    border: 1px solid #444;
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .reports-table th { background-color: #333; color: #fff; }
+  .reports-table tr:nth-child(even) { background-color: #2a2a2a; }
+  .reports-table td:nth-child(1) { width: 15%; } /* Tanggal */
+  .reports-table td:nth-child(2) { width: 25%; } /* Halaman */
+  .reports-table td:nth-child(3) { width: 40%; } /* Pesan */
+  .reports-table td:nth-child(4) { width: 10%; } /* User */
+  .reports-table td:nth-child(5) { width: 10%; } /* Aksi */
+  .reports-table a { color: #87CEEB; }
+  .reports-table .delete-btn {
+    background: #d9534f; color: white; border: none; padding: 5px 10px;
+    border-radius: 4px; cursor: pointer; font-size: 0.9em;
+  }
+</style>
+
+<% if (reports && reports.length > 0) { %>
+  <table class="reports-table">
+    <thead>
+      <tr>
+        <th>Tanggal</th>
+        <th>Halaman Error</th>
+        <th>Pesan</th>
+        <th>Pelapor</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% reports.forEach(report => { %>
+        <tr>
+          <td><%= new Date(report.createdAt).toLocaleString('id-ID') %></td>
+          <td><a href="<%= report.pageUrl %>" target="_blank"><%= report.pageUrl.replace(SITE_URL, '') %></a></td>
+          <td style="white-space: pre-wrap;"><%= report.message %></td>
+          <td><%= report.user ? report.user.username : 'Tamu' %></td>
+          <td>
+            <form action="/admin/report/delete/<%= report._id %>" method="POST" onsubmit="return confirm('Hapus laporan ini?');">
+              <button type="submit" class="delete-btn">Hapus</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+<% } else { %>
+  <p>Tidak ada laporan error.</p>
+<% } %>
+
+<%- include('../admin/partials/footer', { page: page }) %>

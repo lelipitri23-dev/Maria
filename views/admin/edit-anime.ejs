@@ -1,0 +1,160 @@
+<%- include('../admin/partials/header', { /* data header */ }) %> <%# Path relatif %>
+<a href="/admin" class="admin-back-btn">« Kembali ke Dasbor</a><h1>Edit Anime: <%= anime.title %></h1>
+
+<style>
+    .admin-back-btn {
+  display: inline-block;
+  margin-bottom: 20px;
+  padding: 6px 12px;
+  background-color: #555;
+  color: #fff !important; /* Paksa warna putih */
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-weight: bold;
+  text-decoration: none;
+}
+.admin-back-btn:hover {
+  background-color: #666;
+  text-decoration: none;
+}
+    /* Basic Admin Form Styles */
+    .admin-form { margin-bottom: 30px; /* Jarak antar form */ }
+    .admin-form label { display: block; margin-bottom: 5px; font-weight: bold; }
+    .admin-form input[type="text"],
+    .admin-form textarea {
+        width: 100%; padding: 8px; margin-bottom: 15px; background-color: #444;
+        border: 1px solid #666; color: #eee; border-radius: 4px;
+    }
+    .admin-form textarea { min-height: 150px; }
+    .admin-form button {
+        padding: 10px 20px; background-color: #4CAF50; /* Green */ color: white;
+        border: none; border-radius: 4px; cursor: pointer; font-size: 1em;
+    }
+    .admin-form button:hover { background-color: #45a049; }
+    .required-field::after { content: " *"; color: red; }
+</style>
+
+<% if (anime) { %>
+
+    <%# --- FORM UTAMA: EDIT ANIME --- %>
+    <%# PERBAIKAN: Hapus encodeURIComponent dari action %>
+    <form class="admin-form" id="mainAnimeForm" action="/admin/anime/<%= anime.pageSlug %>/edit" method="POST">
+        <h2>Detail Anime</h2>
+        <div>
+            <label for="title">Judul:</label>
+            <input type="text" id="title" name="title" value="<%= anime.title || '' %>">
+        </div>
+        <div>
+            <label for="alternativeTitle">Judul Alternatif:</label>
+            <input type="text" id="alternativeTitle" name="alternativeTitle" value="<%= anime.alternativeTitle || '' %>">
+        </div>
+        <div>
+            <label for="pageSlug">Slug (Read Only):</label>
+            <input type="text" id="pageSlug" name="pageSlug" value="<%= anime.pageSlug || '' %>" readonly style="background-color: #555;">
+        </div>
+        <div>
+            <label for="imageUrl">URL Gambar:</label>
+            <input type="text" id="imageUrl" name="imageUrl" value="<%= anime.imageUrl || '' %>">
+            <% if(anime.imageUrl) { %><img src="<%= anime.imageUrl %>" alt="Preview" style="max-height: 100px; margin-top: 5px;"><% } %>
+        </div>
+        <div>
+            <label for="synopsis">Sinopsis:</label>
+            <textarea id="synopsis" name="synopsis"><%= anime.synopsis || '' %></textarea>
+        </div>
+
+        <hr style="margin: 20px 0;">
+        <h3>Info Detail</h3>
+        <div>
+            <label for="info.Status">Status:</label>
+            <input type="text" id="info.Status" name="info.Status" value="<%= anime.info?.Status || '' %>">
+        </div>
+        <div>
+            <label for="info.Released">Released:</label>
+            <input type="text" id="info.Released" name="info.Released" value="<%= anime.info?.Released || '' %>">
+        </div>
+        <div>
+            <label for="info.Type">Type:</label>
+            <input type="text" id="info.Type" name="info.Type" value="<%= anime.info?.Type || '' %>">
+        </div>
+        <%# Tambahkan input info lain jika perlu (Studio, Producers) %>
+
+        <hr style="margin: 20px 0;">
+        <h3>Genre</h3>
+        <div>
+            <label for="genres">Genre (pisahkan dengan koma):</label>
+            <input type="text" id="genres" name="genres" value="<%= anime.genres ? anime.genres.join(', ') : '' %>">
+        </div>
+
+        <%# Tombol submit untuk form UTAMA %>
+        <button type="submit">Update Detail Anime</button>
+    </form> <%# --- AKHIR FORM UTAMA --- %>
+
+
+    <hr style="margin: 40px 0; border-color: #555;">
+
+
+    <%# --- FORM KEDUA: TAMBAH EPISODE --- %>
+    <h2>Tambah Episode Baru</h2>
+    <%# PERBAIKAN: Hapus encodeURIComponent dari action %>
+    <form class="admin-form" action="/admin/anime/<%= anime.pageSlug %>/episodes/add" method="POST">
+        <div>
+            <label for="episodeTitle" class="required-field">Judul Episode:</label>
+            <input type="text" id="episodeTitle" name="episodeTitle" required>
+        </div>
+        <div>
+            <%# --- PERBAIKAN PATTERN UNTUK EPISODE SLUG (FORMAT PATH) --- %>
+            <label for="episodeSlug" class="required-field">Slug Episode (Bagian Terakhir):</label>
+<input type="text" id="episodeSlug" name="episodeSlug" 
+       placeholder="Contoh: 1 (untuk Episode 1)" 
+       required>
+<small style="color: #aaa; display: block; margin-top: -10px; margin-bottom: 10px;">
+    Bagian terakhir dari URL. (Misal: ketik '1' atau 'ova'). Server akan otomatis menambahkan slug anime di depannya.
+</small>
+        </div>
+        <div>
+            <label for="episodeDate">Tanggal Rilis/Posting:</label>
+            <input type="text" id="episodeDate" name="episodeDate" placeholder="Contoh: Oktober 21, 2025" value="<%= new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) %>">
+        </div>
+
+        <%# Tombol submit HANYA untuk form TAMBAH EPISODE %>
+        <button type="submit" style="background-color: #5bc0de; margin-top: 10px;">Tambah Episode Ini</button>
+    </form> <%# --- AKHIR FORM KEDUA --- %>
+
+    <hr style="margin: 40px 0; border-color: #555;">
+
+<h2>Daftar Episode Saat Ini</h2>
+<% if (anime.episodes && anime.episodes.length > 0) { %>
+    <ul style="list-style: none; padding: 0; max-height: 300px; overflow-y: auto; background: #222; padding: 10px; border-radius: 5px;">
+        <% anime.episodes.forEach(ep => { %>
+            <li style="display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #444;">
+                <span style="max-width: 60%;">
+                    <strong><%= ep.title %></strong><br>
+                    <small style="color: #aaa;">Slug: <%= ep.url %></small>
+                </span>
+                <span style="flex-shrink: 0;">
+                    <%# PERBAIKAN: Hapus encodeURIComponent dari link Edit %>
+                    <a href="/admin/episode<%= ep.url %>/edit" target="_blank" style="color: #87CEEB; margin-right: 10px;">Edit Detail</a>
+                    
+                    <%# --- BARU: Form Delete --- %>
+                    <%# PERBAIKAN: Hapus encodeURIComponent dari form action %>
+                    <form action="/admin/episode<%= ep.url %>/delete" method="POST" style="display: inline-block;" 
+                          onsubmit="return confirm('Yakin ingin menghapus episode ini?');">
+                        <button type="submit" class="btn-danger" style="background: #d9534f; color: white; border: none; padding: 4px 8px; font-size: 0.9em; border-radius: 4px; cursor: pointer;">
+                            Delete
+                        </button>
+                    </form>
+                    <%# --- AKHIR FORM DELETE --- %>
+                </span>
+            </li>
+        <% }) %>
+    </ul>
+<% } else { %>
+    <p>Belum ada episode untuk anime ini.</p>
+<% } %>
+
+
+<% } else { %>
+    <p>Anime tidak ditemukan.</p>
+<% } %>
+
+<%- include('../admin/partials/footer', { page: page }) %>

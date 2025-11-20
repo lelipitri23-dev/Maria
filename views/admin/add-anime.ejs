@@ -1,0 +1,337 @@
+<%- include('../admin/partials/header', { /* data header */ }) %>
+  <a href="/admin" class="admin-back-btn">« Kembali ke Dasbor</a>
+  <h1>Tambah Anime Baru</h1>
+
+  <style>
+    .admin-back-btn {
+      display: inline-block;
+      margin-bottom: 20px;
+      padding: 6px 12px;
+      background-color: #555;
+      color: #fff !important;
+      border-radius: 4px;
+      font-size: 0.9em;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    .admin-back-btn:hover {
+      background-color: #666;
+      text-decoration: none;
+    }
+
+    .admin-form label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .admin-form input[type="text"],
+    .admin-form textarea {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      background-color: #444;
+      border: 1px solid #666;
+      color: #eee;
+      border-radius: 4px;
+    }
+
+    /* BARU: Style untuk input readonly */
+    .admin-form input[readonly] {
+      background-color: #333;
+      color: #999;
+      cursor: not-allowed;
+    }
+
+    .admin-form textarea {
+      min-height: 150px;
+    }
+
+    .admin-form button {
+      padding: 10px 20px;
+      background-color: #5cb85c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+
+    .admin-form button:hover {
+      background-color: #4cae4c;
+    }
+
+    .required-field::after {
+      content: " *";
+      color: red;
+    }
+
+    .admin-form input[type="file"] {
+      background-color: #444;
+      border: 1px solid #666;
+      color: #eee;
+      padding: 8px;
+      border-radius: 4px;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+
+    .form-separator {
+      font-size: 0.9em;
+      color: #aaa;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    /* --- Jikan Generator --- */
+    .jikan-generator {
+      background: #3a3a3a;
+      border: 1px solid #555;
+      padding: 15px 20px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+    }
+
+    .jikan-generator h2 {
+      margin-top: 0;
+      border-bottom: 1px solid #555;
+    }
+
+    .jikan-generator label {
+      font-size: 0.9em;
+    }
+
+    .jikan-generator input[type="text"] {
+      width: 200px;
+      display: inline-block;
+      margin-right: 10px;
+    }
+
+    .jikan-generator button {
+      padding: 8px 15px;
+      background-color: #5bc0de;
+      margin-top: 0;
+    }
+
+    #jikan-status {
+      font-size: 0.9em;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+
+    <%# --- JIKAN API GENERATOR --- %>
+        <div class="admin-form jikan-generator">
+              <h2>Generate dari MyAnimeList</h2>
+              <label for="mal_id">MyAnimeList ID:</label>
+              <input type="text" id="mal_id" name="mal_id" placeholder="Contoh: 5114">
+              <button type="button" id="jikan-generate-btn">Generate Data</button>
+              <div id="jikan-status"></div>
+          </div>
+        <%# --- AKHIR JIKAN API GENERATOR --- %>
+
+            <form class="admin-form" id="addAnimeForm" action="/admin/anime/add" method="POST"
+        enctype="multipart/form-data">
+                    <div>
+                            <label for="title" class="required-field">Judul:</label>
+                            <input type="text" id="title" name="title" onkeyup="updateSlug()" required>
+                        </div>
+                    <div>
+                          <label for="pageSlug" class="required-field">Slug (Otomatis):</label>
+                          <input type="text" id="pageSlug" name="pageSlug" placeholder="otomatis-terisi-dari-judul"
+            readonly required>
+                          <small style="color: #aaa; display: block; margin-top: -10px; margin-bottom: 10px;">Akan
+            terisi otomatis dari Judul atau dari Generator Jikan.</small>
+                      </div>
+
+                       
+               
+        <hr style="margin: 20px 0;">
+                   
+                <div>
+                      <label for="animeImage">Upload Gambar Poster (Prioritas):</label>
+                      <input type="file" id="animeImage" name="animeImage" accept="image/jpeg,image/png,image/webp">
+                      <small style="color: #aaa; display: block; margin-top: -10px; margin-bottom: 10px;">Jika diisi,
+            ini akan digunakan. Akan disimpan sebagai `slug.jpg`</small>
+                  </div>
+                <div class="form-separator">
+                      --- ATAU ---
+                  </div>
+                <div>
+                      <label for="imageUrl">Tempel URL Gambar (Fallback):</label>
+                      <input type="text" id="imageUrl" name="imageUrl"
+            placeholder="/images/default.jpg jika upload kosong">
+                      <small style="color: #aaa; display: block; margin-top: -10px; margin-bottom: 10px;">Digunakan jika
+            tidak ada file yang di-upload. Akan terisi otomatis oleh Jikan.</small>
+                  </div>
+
+                <div>
+                      <label for="synopsis">Sinopsis:</label>
+                      <textarea id="synopsis" name="synopsis"></textarea>
+                  </div>
+
+               
+               
+        <hr style="margin: 20px 0;">
+            <h2>Info Detail (Struktur Baru)</h2>
+
+            <div>
+                  <label for="info.Alternatif">Alternatif:</label>
+                  <input type="text" id="info.Alternatif" name="info.Alternatif">
+              </div>
+            <div>
+                  <label for="info.Type">Type:</label>
+                  <input type="text" id="info.Type" name="info.Type" placeholder="OVA / Series">
+              </div>
+            <div>
+                  <label for="info.Episode">Jumlah Episode:</label>
+                  <input type="text" id="info.Episode" name="info.Episode" placeholder="Contoh: 2">
+              </div>
+            <div>
+                  <label for="info.Status">Status:</label>
+                  <input type="text" id="info.Status" name="info.Status" placeholder="Ongoing / Ended">
+            </div>
+            <div>
+                  <label for="info.Produser">Produser/Studio:</label>
+                  <input type="text" id="info.Produser" name="info.Produser">
+              </div>
+            <div>
+                  <label for="info.Released">Released:</label>
+                  <input type="text" id="info.Released" name="info.Released" placeholder="Tahun rilis">
+              </div>
+                   
+               
+        <hr style="margin: 20px 0;">
+                    <h2>Genre</h2>
+                    <div>
+                            <label for="genres">Genre (pisahkan dengan koma):</label>
+                            <input type="text" id="genres" name="genres">
+                        </div>
+
+                    <button type="submit">Tambah Anime</button>
+             
+      </form>
+
+            <%# --- FUNGSI SLUGIFY --- %>
+               
+        <script>
+          function slugify(text) {
+            if (typeof text !== 'string') return '';
+            return text.toString().toLowerCase()
+              .replace(/\s+/g, '-')
+              .replace(/[^\w\-]+/g, '')
+              .replace(/\-\-+/g, '-')
+              .replace(/^-+/, '')
+              .replace(/-+$/, '');
+          }
+
+          function updateSlug() {
+            try {
+              let title = document.getElementById('title').value;
+              let slug = slugify(title);
+              document.getElementById('pageSlug').value = slug;
+            } catch (e) {
+              console.error("Gagal update slug:", e);
+            }
+          }
+        </script>
+
+                <%# --- SCRIPT UNTUK JIKAN API (DIPERBARUI) --- %>
+                   
+          <script>
+            document.addEventListener('DOMContentLoaded', () => {
+              const generateBtn = document.getElementById('jikan-generate-btn');
+              const malIdInput = document.getElementById('mal_id');
+              const statusDiv = document.getElementById('jikan-status');
+
+              // Variabel input form
+              const titleInput = document.getElementById('title');
+              const slugInput = document.getElementById('pageSlug');
+              const imageUrlInput = document.getElementById('imageUrl');
+              const synopsisInput = document.getElementById('synopsis');
+              const genresInput = document.getElementById('genres');
+
+              // ==========================================================
+              // VARIABEL BARU (Sesuai form baru)
+              // ==========================================================
+              const infoAlternatifInput = document.getElementById('info.Alternatif');
+              const infoTypeInput = document.getElementById('info.Type');
+              const infoEpisodeInput = document.getElementById('info.Episode');
+              const infoStatusInput = document.getElementById('info.Status');
+              const infoProduserInput = document.getElementById('info.Produser');
+              const infoReleasedInput = document.getElementById('info.Released');
+              // ==========================================================
+              // VARIABEL LAMA (altTitleInput, studioInput, producersInput) TELAH DIHAPUS
+              // ==========================================================
+
+              if (!generateBtn) {
+                // Pengecekan jika elemen tidak ada (mis. di halaman lain)
+                console.warn('Jikan generator button not found.');
+                return;
+              }
+
+              generateBtn.addEventListener('click', async () => {
+                const malId = malIdInput.value.trim();
+                if (!malId) {
+                  statusDiv.textContent = 'Silakan masukkan MyAnimeList ID.';
+                  statusDiv.style.color = '#d9534f'; // Merah
+                  return;
+                }
+
+                statusDiv.textContent = 'Mengambil data dari Jikan...';
+                statusDiv.style.color = '#5bc0de'; // Biru
+
+                try {
+                  const response = await fetch(`https://api.jikan.moe/v4/anime/${malId}`);
+                  if (!response.ok) {
+                    throw new Error(`Anime tidak ditemukan atau API error (Status: ${response.status})`);
+                  }
+                  const result = await response.json();
+                  const data = result.data;
+
+                  const mainTitle = data.title_english || data.title;
+
+                  // Mengisi data ke form
+                  if (titleInput) titleInput.value = mainTitle;
+                  if (slugInput) slugInput.value = slugify(mainTitle); // Generate slug dari judul
+                  if (imageUrlInput) imageUrlInput.value = data.images?.jpg?.image_url || '';
+                  if (synopsisInput) synopsisInput.value = data.synopsis || '';
+                  if (genresInput) genresInput.value = data.genres?.map(g => g.name).join(', ') || '';
+
+                  // Mengisi status
+                  let status = 'Unknown';
+                  if (data.status === 'Finished Airing') status = 'Ended';
+                  if (data.status === 'Currently Airing') status = 'Ongoing';
+                  if (infoStatusInput) infoStatusInput.value = status;
+
+                  // ==========================================================
+                  // MENGISI FORM BARU (SESUAI STRUKTUR DB BARU)
+                  // ==========================================================
+                  if (infoAlternatifInput) infoAlternatifInput.value = data.title_japanese || '';
+                  if (infoTypeInput) infoTypeInput.value = data.type || '';
+                  if (infoEpisodeInput) infoEpisodeInput.value = data.episodes || '';
+                  if (infoReleasedInput) infoReleasedInput.value = data.aired?.prop?.from?.year || '';
+
+                  // Gabungkan studio dan produser ke field 'Produser'
+                  const producers = data.producers?.map(p => p.name) || [];
+                  const studios = data.studios?.map(s => s.name) || [];
+                  const allProducers = [...producers, ...studios].join(', ');
+                  if (infoProduserInput) infoProduserInput.value = allProducers;
+                  // ==========================================================
+                  // BLOK KODE LAMA (altTitleInput, studioInput, producersInput) TELAH DIHAPUS
+                  // ==========================================================
+
+                  statusDiv.textContent = `Berhasil mengambil data untuk: ${data.title}`;
+                  statusDiv.style.color = '#5cb85c'; // Hijau
+
+                } catch (error) {
+                  console.error('Jikan fetch error:', error);
+                  statusDiv.textContent = `Error: ${error.message}`;
+                  statusDiv.style.color = '#d9534f'; // Merah
+                }
+              });
+            });
+          </script>
+
+          <%- include('../admin/partials/footer', { page: page }) %>

@@ -1,0 +1,32 @@
+<%- include('partials/header', { /* data header */ }) %>
+
+<main class="flex-1 w-full min-w-0">
+  <div class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
+    
+    <div class="flex items-center justify-between p-5 border-b border-[#33303f]">
+      <h1 class="text-lg font-bold text-[var(--text-main)] uppercase border-l-4 border-primary pl-3">
+        Daftar Tahun Rilis
+      </h1>
+    </div>
+
+    <div class="p-6">
+      <% if (!years || years.length === 0) { %>
+        <p class="text-muted text-center italic">Belum ada tahun rilis yang tersedia.</p>
+      <% } else { %>
+        <ul class="flex flex-wrap gap-3 justify-center sm:justify-start">
+          <% years.sort((a, b) => b - a).forEach(year => { %>
+            <li>
+              <a href="/tahun/<%= year %>" class="inline-block bg-darker hover:bg-primary text-[var(--text-main)] hover:text-white text-sm font-bold px-5 py-2.5 rounded border border-[#33303f] hover:border-primary transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5">
+                <%= year %>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+    
+  </div>
+</main>
+
+<%- include('partials/sidebar', { page: page }) %>
+<%- include('partials/footer', { page: page }) %>

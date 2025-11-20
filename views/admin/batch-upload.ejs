@@ -1,0 +1,119 @@
+<%- include('../admin/partials/header', { /* data header */ }) %>
+<a href="/admin" class="admin-back-btn">« Kembali ke Dasbor</a>
+<h1>Batch Remote Upload (Dood / Viplay / VidGuard)</h1>
+
+<style>
+  /* (Style Anda tidak berubah) */
+  .admin-back-btn {
+	display: inline-block;
+	margin-bottom: 20px;
+	padding: 6px 12px;
+	background-color: #555;
+	color: #fff !important;
+	border-radius: 4px;
+	font-size: 0.9em;
+	font-weight: bold;
+	text-decoration: none;
+  }
+  .admin-back-btn:hover {
+	background-color: #666;
+  }
+  #startBatchBtn {
+	padding: 12px 25px;
+	font-size: 1.1em;
+	background-color: #d9534f;
+	color: white;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+  }
+  #startBatchBtn:disabled {
+	background-color: #555;
+	cursor: not-allowed;
+  }
+  #log-container {
+	margin-top: 20px;
+	background-color: #1a1a1a;
+	border: 1px solid #444;
+	border-radius: 5px;
+	min-height: 300px;
+	max-height: 500px;
+	overflow-y: auto;
+  }
+  #log-output {
+	font-family: monospace;
+	font-size: 0.9em;
+	color: #eee;
+	padding: 15px;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+  }
+</style>
+
+<div class="batch-container">
+  <p>Proses ini akan mengambil <strong>semua</strong> episode dari database Anda.</p>
+  <p>Server akan memeriksa setiap episode, dan jika <strong>tidak memiliki</strong> link "Mirror" (Dood), "Viplay", atau "EarnVids", server akan mencoba mengunggah link sumber ke semua layanan tersebut.</p>
+  <p style="color: #f0ad4e; font-weight: bold;">Proses ini bisa memakan waktu SANGAT LAMA. Jangan tutup halaman ini sampai proses selesai.</p>
+  
+  <button id="startBatchBtn">Mulai Proses Batch</button>
+  
+  <div id="log-container">
+    <pre id="log-output">Klik tombol "Mulai" untuk memproses...</pre>
+  </div>
+</div>
+
+<script>
+  document.getElementById('startBatchBtn').addEventListener('click', async (e) => {
+    const btn = e.target;
+    const log = document.getElementById('log-output');
+    
+    if (!confirm('ANDA YAKIN? Proses ini akan memanggil API upload untuk setiap episode yang belum memiliki mirror. Ini bisa memakan waktu berjam-jam dan menggunakan banyak kuota API Anda.')) {
+      return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Sedang Memproses... (Ini akan lama, jangan tutup)';
+    log.textContent = 'Memulai proses batch...\n';
+    
+    try {
+      const response = await fetch('/admin/api/batch-remote-upload-start', { method: 'POST' });
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Terjadi kesalahan yang tidak diketahui');
+      }
+      
+      log.textContent += `\n========== PROSES SELESAI ==========\n`;
+      log.textContent += `Total Episode Diperiksa: ${result.totalEpisodesChecked}\n`;
+      log.textContent += `Episode Dilewati (Tidak ada link sumber): ${result.noSourceLink}\n\n`;
+
+      // Statistik DoodStream
+      log.textContent += `--- DoodStream (Mirror) ---\n`;
+      log.textContent += `  Sudah Ada: ${result.dood.alreadyExists}\n`;
+      log.textContent += `  Sukses Upload: ${result.dood.success}\n`;
+      log.textContent += `  Gagal Upload: ${result.dood.failed}\n\n`;
+
+      // Statistik Viplay
+      log.textContent += `--- Viplay ---\n`;
+      log.textContent += `  Sudah Ada: ${result.viplay.alreadyExists}\n`;
+      log.textContent += `  Sukses Upload: ${result.viplay.success}\n`;
+      log.textContent += `  Gagal Upload: ${result.viplay.failed}\n\n`;
+
+      // Statistik EarnVids
+      log.textContent += `--- EarnVids ---\n`;
+      log.textContent += `  Sudah Ada: ${result.earnvids.alreadyExists}\n`;
+      log.textContent += `  Sukses Upload: ${result.earnvids.success}\n`;
+      log.textContent += `  Gagal Upload: ${result.earnvids.failed}\n`;
+
+      btn.textContent = 'Selesai';
+      btn.style.backgroundColor = '#5cb85c'; // Hijau
+
+    } catch (error) {
+      log.textContent += `\n\nERROR KRITIS: ${error.message}\nProses dihentikan. Cek konsol server (Terminal/CMD) untuk detail.`;
+      btn.textContent = 'Gagal (Cek Konsol Server)';
+      btn.disabled = false;
+    }
+  });
+</script>
+
+<%- include('../admin/partials/footer', { page: page }) %>

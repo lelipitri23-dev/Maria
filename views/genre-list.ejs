@@ -1,0 +1,32 @@
+<%- include('partials/header', { /* data header */ }) %>
+  
+<main class="flex-1 w-full min-w-0">
+  <div class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
+    
+    <div class="flex items-center justify-between p-5 border-b border-[#33303f]">
+      <h1 class="text-lg font-bold text-[var(--text-main)] uppercase border-l-4 border-primary pl-3">
+        Daftar Genre
+      </h1>
+    </div>
+
+    <div class="p-6">
+      <% if (!genres || genres.length === 0) { %>
+        <p class="text-muted text-center italic">Belum ada genre yang tersedia.</p>
+      <% } else { %>
+        <ul class="flex flex-wrap gap-3 justify-center sm:justify-start">
+          <% genres.forEach(genre => { %>
+            <li>
+              <a href="/genre/<%= slugify(genre) %>" class="inline-block bg-darker hover:bg-primary text-[var(--text-main)] hover:text-white text-sm font-medium px-4 py-2 rounded border border-[#33303f] hover:border-primary transition-all duration-200 shadow-sm hover:shadow-md">
+                <%= genre %>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+
+  </div>
+</main>
+
+<%- include('partials/sidebar', { page: page }) %>
+<%- include('partials/footer', { page: page }) %>

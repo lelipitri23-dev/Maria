@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#e97991">
+    <meta name="robots" content="index, follow">
+    
+    <title><%= siteName %> - Pusat Streaming Hentai Sub Indo Kualitas HD</title>
+    <meta name="description" content="Platform streaming anime dewasa terbaik. Nonton ribuan hentai uncensored, 3D, dan serial terbaru dengan subtitle Indonesia. Gratis selamanya tanpa iklan mengganggu." />
+    
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="<%= siteName %> - Streaming Tanpa Batas" />
+    <meta property="og:description" content="Akses ribuan koleksi anime dewasa dengan kualitas HD dan server tercepat." />
+    
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#e97991',
+              'primary-hover': '#d15f76',
+              dark: '#16151d',
+            },
+            fontFamily: {
+              sans: ['Rubik', 'sans-serif'],
+            },
+            animation: {
+              'fade-in-up': 'fadeInUp 0.8s ease-out',
+              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            },
+            keyframes: {
+              fadeInUp: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body { background-color: #000; }
+      #bg-container { transition: background-image 1.5s ease-in-out; }
+    </style>
+</head>
+
+<body class="antialiased font-sans text-gray-200 selection:bg-primary selection:text-white relative min-h-screen flex flex-col overflow-x-hidden">
+
+    <div id="bg-container" class="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat bg-fixed scale-105"></div>
+    <div class="fixed inset-0 z-0 bg-gradient-to-b from-black/80 via-black/70 to-black/90 backdrop-blur-[2px]"></div>
+
+    <div class="relative z-10 flex-grow flex flex-col items-center justify-center px-4 py-16 sm:px-6 lg:px-8 w-full">
+        
+        <div class="w-full max-w-4xl text-center space-y-10">
+            
+            <div class="flex justify-center mb-6 animate-fade-in-up">
+                <a href="/home" class="group transition-transform hover:scale-105 duration-300">
+                    <% if (false) { %> 
+                        <img src="/logo.png" alt="<%= siteName %>" class="h-20 w-auto drop-shadow-[0_0_20px_rgba(233,121,145,0.6)]">
+                    <% } else { %>
+                        <h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-pink-200 to-primary drop-shadow-lg">
+                            <%= siteName %>
+                        </h1>
+                    <% } %>
+                </a>
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-lg border border-white/10 p-2 rounded-full shadow-2xl max-w-2xl mx-auto animate-fade-in-up" style="animation-delay: 0.1s;">
+                <form action="/search" method="GET" class="flex items-center group focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 rounded-full transition-all">
+                    <input type="text" name="q" placeholder="Cari judul, artis, atau kode..." 
+                        class="w-full bg-transparent text-white px-6 py-4 focus:outline-none placeholder-gray-400 text-base sm:text-lg rounded-l-full">
+                    <button type="submit" aria-label="Cari" 
+                        class="bg-primary hover:bg-primary-hover text-white w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg shadow-primary/30 hover:scale-105 hover:rotate-12">
+                        <i class="fa fa-search text-xl"></i>
+                    </button>
+                </form>
+            </div>
+
+            <div class="space-y-6 animate-fade-in-up" style="animation-delay: 0.2s;">
+                <h2 class="text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight">
+                    Surga Anime Dewasa <br>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500">Tanpa Batas & Gratis</span>
+                </h2>
+                
+                <p class="text-gray-300 text-base md:text-lg leading-relaxed max-w-2xl mx-auto font-light">
+                    Akses ribuan koleksi hentai <strong>Uncensored</strong>, <strong>3D</strong>, dan <strong>Series Terbaru</strong> dengan subtitle Indonesia yang akurat. Server cepat, resolusi HD, dan update setiap hari.
+                </p>
+                
+                <div class="pt-6 flex flex-col sm:flex-row justify-center gap-4">
+                    <a href="/home" class="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-primary to-pink-600 hover:from-pink-600 hover:to-primary text-white text-lg font-bold py-4 px-12 rounded-full shadow-[0_0_20px_rgba(233,30,99,0.4)] transform transition-all hover:-translate-y-1 hover:scale-105 border border-white/10">
+                        <i class="fas fa-play text-xl"></i>
+                        Mulai Menonton
+                    </a>
+                    <a href="/genre-list" class="inline-flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 text-white text-lg font-semibold py-4 px-12 rounded-full border border-white/10 backdrop-blur-md transition-all hover:-translate-y-1">
+                        <i class="fas fa-tags text-lg text-primary"></i>
+                        Lihat Genre
+                    </a>
+                </div>
+            </div>
+
+            <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 text-left animate-fade-in-up" style="animation-delay: 0.3s;">
+                
+                <div class="bg-white/5 backdrop-blur-md border border-white/5 p-6 rounded-2xl hover:bg-white/10 transition-colors group">
+                    <div class="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-crown text-2xl text-primary"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2">Koleksi Premium</h3>
+                    <p class="text-sm text-gray-400">Dari Vanilla manis hingga Hardcore menantang, semua tersedia lengkap.</p>
+                </div>
+
+                <div class="bg-white/5 backdrop-blur-md border border-white/5 p-6 rounded-2xl hover:bg-white/10 transition-colors group">
+                    <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-bolt text-2xl text-blue-400"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2">Server Kilat</h3>
+                    <p class="text-sm text-gray-400">Streaming lancar anti-buffering dengan kompresi video canggih.</p>
+                </div>
+
+                <div class="bg-white/5 backdrop-blur-md border border-white/5 p-6 rounded-2xl hover:bg-white/10 transition-colors group">
+                    <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-closed-captioning text-2xl text-green-400"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2">Sub Indo Akurat</h3>
+                    <p class="text-sm text-gray-400">Terjemahan yang mudah dipahami dan nyaman dibaca.</p>
+                </div>
+
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-white/5">
+                <p class="text-xs text-gray-500 uppercase tracking-widest mb-4 font-semibold">Genre Populer</p>
+                <div class="flex flex-wrap justify-center gap-2 text-xs text-gray-400">
+                    <span class="bg-white/5 px-3 py-1 rounded-full">Uncensored</span>
+                    <span class="bg-white/5 px-3 py-1 rounded-full">3D Animation</span>
+                    <span class="bg-white/5 px-3 py-1 rounded-full">Milf</span>
+                    <span class="bg-white/5 px-3 py-1 rounded-full">NTR</span>
+                    <span class="bg-white/5 px-3 py-1 rounded-full">Schoolgirl</span>
+                    <span class="bg-white/5 px-3 py-1 rounded-full">Cosplay</span>
+                    <span class="bg-white/5 px-3 py-1 rounded-full">Full HD 1080p</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <footer class="relative z-10 py-6 text-center text-xs text-gray-600 border-t border-white/5 bg-black/40 backdrop-blur-md">
+        <p>&copy; <%= new Date().getFullYear() %> <strong class="text-gray-400"><%= siteName %></strong>. All rights reserved.</p>
+    </footer>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // Background Rotator
+        const backgrounds = [
+          '/images/backgrounds/bg1.webp',
+          '/images/backgrounds/bg2.webp',
+          '/images/backgrounds/bg3.webp',
+          '/images/backgrounds/bg4.webp',
+          '/images/backgrounds/bg5.webp',
+        ];
+        
+        const bgContainer = document.getElementById('bg-container');
+        if(bgContainer && backgrounds.length > 0) {
+            // Set Initial
+            let currentIndex = Math.floor(Math.random() * backgrounds.length);
+            bgContainer.style.backgroundImage = `url(${backgrounds[currentIndex]})`;
+
+            // Change every 7 seconds
+            setInterval(() => {
+                currentIndex = (currentIndex + 1) % backgrounds.length;
+                bgContainer.style.backgroundImage = `url(${backgrounds[currentIndex]})`;
+            }, 7000);
+        }
+      });
+    </script>
+
+    <script type="text/javascript">var _Hasync= _Hasync|| [];
+    _Hasync.push(['Histats.start', '1,4597363,4,0,0,0,00010000']);
+    _Hasync.push(['Histats.fasi', '1']);
+    _Hasync.push(['Histats.track_hits', '']);
+    (function() {
+    var hs = document.createElement('script'); hs.type = 'text/javascript'; hs.async = true;
+    hs.src = ('//s10.histats.com/js15_as.js');
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(hs);
+    })();</script>
+
+</body>
+</html>

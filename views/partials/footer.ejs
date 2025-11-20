@@ -1,0 +1,366 @@
+    </div> </div> <footer class="mt-12 bg-card border-t-4 border-primary pt-8 pb-6">
+    <div class="max-w-[1200px] mx-auto px-4 text-center">
+      
+      <ul class="flex flex-wrap justify-center gap-4 md:gap-8 mb-6 text-sm font-bold text-muted uppercase">
+        <li><a href="/tahun-list" class="hover:text-primary transition-colors">Tahun</a></li>
+        <li><a href="/genre-list" class="hover:text-primary transition-colors">Genre</a></li>
+        <li><a href="/jadwal" class="hover:text-primary transition-colors">Jadwal</a></li>
+      </ul>
+
+      <div class="text-xs text-muted space-y-2">
+        <p>
+          Copyright &copy; <%= new Date().getFullYear() %> - <span class="text-[var(--text-main)] font-bold"><%= (typeof siteName !== 'undefined') ? siteName : 'NontonHentai' %></span>
+        </p>
+        <p class="max-w-2xl mx-auto leading-relaxed">
+          Disclaimer: This site <i><%= (typeof siteName !== 'undefined') ? siteName : '' %></i> does not store any files on its server. All contents are provided by non-affiliated third parties.
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script>
+    // --- Helper Functions ---
+    function slugify(text) {
+      if (!text) return '';
+      return text.toString().toLowerCase().trim()
+        .replace(/\s+/g, '-')
+        .replace(/[^\w\-]+/g, '')
+        .replace(/\-\-+/g, '-');
+    }
+
+    function timeAgo(date) {
+      const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+      let interval = seconds / 31536000;
+      if (interval > 1) return Math.floor(interval) + " tahun lalu";
+      interval = seconds / 2592000;
+      if (interval > 1) return Math.floor(interval) + " bulan lalu";
+      interval = seconds / 86400;
+      if (interval > 1) return Math.floor(interval) + " hari lalu";
+      interval = seconds / 3600;
+      if (interval > 1) return Math.floor(interval) + " jam lalu";
+      interval = seconds / 60;
+      if (interval > 1) return Math.floor(interval) + " menit lalu";
+      return Math.floor(seconds) + " detik lalu";
+    }
+
+    // --- Main Logic ---
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Data dari Server (EJS variables)
+      const page = <%- JSON.stringify(typeof page !== 'undefined' ? page : '') %>;
+      const userId = <%- JSON.stringify(typeof user !== 'undefined' && user ? user.id : null) %>;
+
+      // 1. Lazy Load Images (Fade-in Effect)
+      const lazyImages = document.querySelectorAll('img.lazy-load[data-src]');
+      const lazyImageObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const img = entry.target;
+            observer.unobserve(img);
+            img.src = img.getAttribute("data-src");
+            img.onload = () => {
+              img.classList.remove("opacity-0"); 
+              img.classList.add("opacity-100");
+            };
+          }
+        });
+      });
+      lazyImages.forEach(img => lazyImageObserver.observe(img));
+
+      // 2. Time Ago Elements
+      document.querySelectorAll('.time-ago').forEach(el => {
+        const timestamp = el.getAttribute('data-t');
+        if (timestamp) el.textContent = timeAgo(timestamp);
+      });
+
+      // 3. SIDEBAR: Load "Tahun Ini" (AJAX)
+      const tahunIniContainer = document.getElementById('tahun-ini-items');
+      if (tahunIniContainer) {
+        try {
+          const response = await fetch(`/api/tahun-ini`);
+          const animes = await response.json();
+          
+          if (!animes || animes.length === 0) {
+            tahunIniContainer.innerHTML = `<p class="text-center text-xs text-muted p-4">Tidak ada data.</p>`;
+          } else {
+            let listHtml = `<ul class="space-y-3">`;
+            animes.forEach(anime => {
+              const genres = (anime.genres && anime.genres.length > 0) ? anime.genres.slice(0, 12).map(g => `<a href="/genre/${slugify(g)}" class="hover:text-primary">${g}</a>`).join(', ') : '&nbsp;';
+              const safePageSlug = encodeURIComponent(anime.pageSlug || '');
+              
+              // GENERATE HTML DENGAN CLASS WARNA DINAMIS (text-[var(--text-main)])
+              listHtml += `
+                <li class="flex gap-3 border-b border-[#33303f] pb-3 last:border-0 group">
+                  <a href="/anime/${safePageSlug}" class="shrink-0 w-[60px]">
+                    <img src="${anime.imageUrl || '/images/default.jpg'}" class="w-full h-[85px] object-cover rounded border border-[#33303f] group-hover:border-primary transition-colors" loading="lazy">
+                  </a>
+                  <div class="flex-1 min-w-0">
+                    <h4 class="text-sm font-bold text-[var(--text-main)] leading-snug line-clamp-2 mb-1">
+                      <a href="/anime/${safePageSlug}" class="hover:text-primary transition-colors">${anime.title || ''}</a>
+                    </h4>
+                    <span class="text-[11px] text-muted block truncate">${genres}</span>
+                  </div>
+                </li>`;
+            });
+            listHtml += '</ul>';
+            tahunIniContainer.innerHTML = listHtml;
+          }
+        } catch (error) {
+          tahunIniContainer.innerHTML = `<p class="text-center text-xs text-red-500 p-4">Gagal memuat.</p>`;
+        }
+      }
+
+      // 4. SIDEBAR: Load "Genre Uncensored" (AJAX)
+      const genreuncensoredContainer = document.getElementById('genre-uncensored-items');
+      if (genreuncensoredContainer) {
+        try {
+          const response = await fetch(`/api/genre/uncensored`);
+          const animes = await response.json();
+          
+          if (!animes || animes.length === 0) {
+            genreuncensoredContainer.innerHTML = `<p class="text-center text-xs text-muted p-4">Tidak ada data.</p>`;
+          } else {
+            let listHtml = `<ul class="space-y-3">`;
+            animes.forEach(anime => {
+              const genres = (anime.genres && anime.genres.length > 0) ? anime.genres.slice(0, 12).map(g => `<a href="/genre/${slugify(g)}" class="hover:text-primary">${g}</a>`).join(', ') : '&nbsp;';
+              const safePageSlug = encodeURIComponent(anime.pageSlug || '');
+              
+              listHtml += `
+                <li class="flex gap-3 border-b border-[#33303f] pb-3 last:border-0 group">
+                  <a href="/anime/${safePageSlug}" class="shrink-0 w-[60px]">
+                    <img src="${anime.imageUrl || '/images/default.jpg'}" class="w-full h-[85px] object-cover rounded border border-[#33303f] group-hover:border-primary transition-colors" loading="lazy">
+                  </a>
+                  <div class="flex-1 min-w-0">
+                    <h4 class="text-sm font-bold text-[var(--text-main)] leading-snug line-clamp-2 mb-1">
+                      <a href="/anime/${safePageSlug}" class="hover:text-primary transition-colors">${anime.title || ''}</a>
+                    </h4>
+                    <span class="text-[11px] text-muted block truncate">${genres}</span>
+                  </div>
+                </li>`;
+            });
+            listHtml += '</ul>';
+            genreuncensoredContainer.innerHTML = listHtml;
+          }
+        } catch (error) {
+          genreuncensoredContainer.innerHTML = `<p class="text-center text-xs text-red-500 p-4">Gagal memuat.</p>`;
+        }
+      }
+
+      // 5. PAGE: ANIME DETAIL (Bookmark Button Logic)
+      if (page === 'anime') {
+        const bookmarkBtn = document.getElementById('favorit1');
+        if (bookmarkBtn && userId) {
+          const animeId = bookmarkBtn.dataset.animeid;
+          let isBookmarked = false;
+
+          const updateButton = () => {
+            if (isBookmarked) {
+              bookmarkBtn.textContent = '✓ Tersimpan';
+              bookmarkBtn.className = "w-full bg-primary hover:bg-primary-hover text-white py-2 rounded-full font-bold text-sm transition-all shadow-md border border-primary";
+            } else {
+              bookmarkBtn.textContent = 'Bookmark';
+              bookmarkBtn.className = "w-full bg-[#4a4a4a] hover:bg-[#666] text-white py-2 rounded-full font-bold text-sm transition-all shadow-md border border-[#555]";
+            }
+          };
+
+          const checkStatus = async () => {
+            try {
+              const res = await fetch(`/api/bookmark-status?userId=${userId}&animeId=${animeId}`);
+              const result = await res.json();
+              isBookmarked = result.isBookmarked;
+              updateButton();
+            } catch (e) { console.error(e); }
+          };
+
+          bookmarkBtn.addEventListener('click', async () => {
+            bookmarkBtn.disabled = true;
+            bookmarkBtn.classList.add('opacity-70', 'cursor-wait');
+            const method = isBookmarked ? 'DELETE' : 'POST';
+            const url = isBookmarked ? `/api/bookmarks?userId=${userId}&animeId=${animeId}` : '/api/bookmarks';
+            const options = { method: method, headers: { 'Content-Type': 'application/json' } };
+            if (method === 'POST') options.body = JSON.stringify({ userId, animeId });
+
+            try {
+              const res = await fetch(url, options);
+              const result = await res.json();
+              if (result.success) {
+                isBookmarked = result.isBookmarked;
+                updateButton();
+              } else alert('Gagal memperbarui bookmark.');
+            } catch (e) { alert('Error koneksi server.'); }
+            finally { 
+                bookmarkBtn.disabled = false; 
+                bookmarkBtn.classList.remove('opacity-70', 'cursor-wait');
+            }
+          });
+          checkStatus();
+        } else if (bookmarkBtn && !userId) {
+            bookmarkBtn.textContent = 'Login untuk Bookmark';
+            bookmarkBtn.addEventListener('click', () => window.location.href = '/login');
+        }
+      }
+
+      // 6. PAGE: BOOKMARKS LIST
+      if (page === 'bookmarks') {
+        const grid = document.getElementById('bookmark-list');
+        const loadingMessage = document.getElementById('loading-message');
+        const clearBtn = document.getElementById('clearBookmarksBtn');
+        const bookmarkCount = document.getElementById('bookmark-count');
+
+        if (userId) {
+          const loadBookmarks = async () => {
+            try {
+              const response = await fetch(`/api/my-bookmarks?userId=${userId}`);
+              if (!response.ok) throw new Error(`HTTP error!`);
+              const animes = await response.json();
+              
+              loadingMessage.style.display = 'none';
+              if(bookmarkCount) bookmarkCount.textContent = Array.isArray(animes) ? animes.length : 0;
+
+              if (!Array.isArray(animes) || animes.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center py-10 text-muted">Belum ada anime yang dibookmark.</div>';
+                if(clearBtn) clearBtn.style.display = 'none';
+              } else {
+                if(clearBtn) clearBtn.style.display = 'inline-block';
+                grid.innerHTML = ''; 
+                
+                animes.forEach(anime => {
+                   // Generate HTML Card (Sama seperti Home, sesuaikan class untuk light/dark)
+                   const card = document.createElement('article');
+                   card.className = "group relative bg-darker rounded-md overflow-hidden border border-[#33303f] hover:border-primary hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-lg";
+                   
+                   const safeSlug = encodeURIComponent(anime.pageSlug || '');
+                   const imageUrl = anime.imageUrl || '/images/default.jpg';
+                   const title = anime.title || 'No Title';
+                   const status = (anime.info && anime.info.Status) ? anime.info.Status : 'Ongoing';
+                   
+                   card.innerHTML = `
+                    <a href="/anime/${safeSlug}" title="${title}">
+                      <div class="relative aspect-[2/3] overflow-hidden bg-gray-800">
+                        <img src="${imageUrl}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 lazy-load opacity-0" data-src="${imageUrl}" alt="${title}">
+                        <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                          <div class="w-10 h-10 rounded-full bg-primary border-2 border-white text-white flex items-center justify-center"><i class="fas fa-play ml-1"></i></div>
+                        </div>
+                        <span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">${status}</span>
+                      </div>
+                      <div class="p-3 h-[70px]">
+                        <h2 class="text-xs font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors">${title}</h2>
+                      </div>
+                    </a>`;
+                   grid.appendChild(card);
+                });
+                
+                const newLazyImages = grid.querySelectorAll('img.lazy-load[data-src]');
+                newLazyImages.forEach(img => lazyImageObserver.observe(img));
+              }
+            } catch (error) {
+              loadingMessage.textContent = 'Gagal memuat bookmark.';
+              loadingMessage.classList.add('text-red-500');
+            }
+          };
+
+          if(clearBtn) {
+            clearBtn.addEventListener('click', async () => {
+                if (!confirm('Hapus semua bookmark?')) return;
+                clearBtn.disabled = true;
+                clearBtn.textContent = '...';
+                try {
+                    const res = await fetch(`/api/bookmarks/all?userId=${userId}`, { method: 'DELETE' });
+                    const result = await res.json();
+                    if (result.success) {
+                        grid.innerHTML = '<div class="col-span-full text-center py-10 text-muted">Belum ada anime yang dibookmark.</div>';
+                        bookmarkCount.textContent = '0';
+                        clearBtn.style.display = 'none';
+                    } else alert('Gagal menghapus.');
+                } catch(e) { alert('Error server.'); }
+                finally { clearBtn.disabled = false; clearBtn.textContent = 'Hapus Semua'; }
+            });
+          }
+          loadBookmarks();
+        }
+      }
+
+      // 7. PAGE: JADWAL (Fetch Jikan API)
+      if (page === 'jadwal') {
+          const grid = document.getElementById('jadwal-grid');
+          const loading = document.getElementById('jadwal-loading');
+          
+          if (grid && loading) {
+            const JIKAN_API_URL = 'https://api.jikan.moe/v4/anime?genres=12&order_by=start_date&sort=desc&limit=24';
+            try {
+                const response = await fetch(JIKAN_API_URL);
+                const data = await response.json();
+                
+                if (!data.data || data.data.length === 0) {
+                    loading.innerHTML = '<p>Tidak ada data jadwal.</p>';
+                    return;
+                }
+                
+                loading.style.display = 'none';
+                grid.innerHTML = '';
+                
+                data.data.forEach(anime => {
+                    const title = anime.title_english || anime.title || 'No Title';
+                    const imageUrl = (anime.images?.jpg?.image_url) || '/images/default.jpg';
+                    const status = anime.status || '?';
+                    const searchUrl = `/search?q=${encodeURIComponent(title)}`;
+                    const eps = anime.episodes || '?';
+                    
+                    const card = document.createElement('article');
+                    card.className = "group relative bg-darker rounded-md overflow-hidden border border-[#33303f] hover:border-primary hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-lg";
+                    card.innerHTML = `
+                      <a href="${searchUrl}" title="${title}">
+                        <div class="relative aspect-[2/3] overflow-hidden bg-gray-800">
+                          <img src="${imageUrl}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 lazy-load opacity-0" data-src="${imageUrl}" alt="${title}">
+                          <span class="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded z-10">Ep ${eps}</span>
+                          <span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">${status}</span>
+                        </div>
+                        <div class="p-3 h-[70px]">
+                          <h2 class="text-xs font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors">${title}</h2>
+                        </div>
+                      </a>`;
+                    grid.appendChild(card);
+                });
+                
+                const newLazyImages = grid.querySelectorAll('img.lazy-load[data-src]');
+                newLazyImages.forEach(img => lazyImageObserver.observe(img));
+                
+            } catch (error) {
+                console.error(error);
+                loading.innerHTML = '<p class="text-red-500">Gagal memuat jadwal.</p>';
+            }
+          }
+      }
+      
+      // 8. REPORT BUTTON
+      const reportBtn = document.getElementById('singletonform');
+      if(reportBtn) {
+        if (userId) {
+             reportBtn.addEventListener('click', async (e) => {
+                  e.preventDefault();
+                  const msg = prompt("Jelaskan masalahnya (Link mati, Video error, dll):");
+                  if(!msg) return;
+                  try {
+                    const res = await fetch('/api/report-error', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ pageUrl: window.location.href, message: msg })
+                    });
+                    const result = await res.json();
+                    alert(result.message || 'Laporan terkirim.');
+                  } catch(e) { alert("Gagal mengirim laporan."); }
+             });
+        } else {
+             reportBtn.textContent = "Login untuk Lapor";
+             reportBtn.addEventListener('click', (e) => {
+                 e.preventDefault();
+                 window.location.href = '/login';
+             });
+        }
+      }
+
+    });
+  </script>
+</body>
+</html>

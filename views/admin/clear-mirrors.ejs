@@ -1,0 +1,106 @@
+<%# File: views/admin/clear-mirrors.ejs %>
+
+<%- include('../admin/partials/header', { /* data header */ }) %>
+<a href="/admin" class="admin-back-btn">« Kembali ke Dasbor</a>
+<h1>Hapus Batch Mirror (Dood, Viplay, EarnVids)</h1>
+
+<style>
+  .admin-back-btn {
+    display: inline-block;
+    margin-bottom: 20px;
+    padding: 6px 12px;
+    background-color: #555;
+    color: #fff !important;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-weight: bold;
+    text-decoration: none;
+  }
+  .admin-back-btn:hover {
+    background-color: #666;
+  }
+  #startClearBtn {
+    padding: 12px 25px;
+    font-size: 1.1em;
+    background-color: #d9534f; /* Merah Berbahaya */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  #startClearBtn:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+  }
+  #log-container {
+    margin-top: 20px;
+    background-color: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 5px;
+    min-height: 100px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  #log-output {
+    font-family: monospace;
+    font-size: 0.9em;
+    color: #eee;
+    padding: 15px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+</style>
+
+<div class="batch-container">
+  <p style="color: #f0ad4e; font-weight: bold; font-size: 1.2em;">PERINGATAN!</p>
+  <p>Tindakan ini akan **MENGHAPUS SEMUA** link *stream* DAN *download* yang terkait dengan "Mirror", "Viplay", dan "EarnVids" dari **SELURUH DATABASE EPISODE** Anda.</p>
+  <p>Link GStreamer asli Anda (yang tidak bernama "Mirror", "Viplay", atau "EarnVids") akan aman.</p>
+  <p>Aksi ini tidak dapat dibatalkan.</p>
+  
+  <button id="startClearBtn">HAPUS SEMUA MIRROR SEKARANG</button>
+  
+  <div id="log-container">
+    <pre id="log-output">Menunggu konfirmasi...</pre>
+  </div>
+</div>
+
+<script>
+  document.getElementById('startClearBtn').addEventListener('click', async (e) => {
+    const btn = e.target;
+    const log = document.getElementById('log-output');
+    
+    // Konfirmasi dua kali untuk keamanan
+    if (!confirm('ANDA YAKIN? Ini akan menghapus semua link Dood, Viplay, dan EarnVids dari database.')) {
+      return;
+    }
+    if (!confirm('SERIUS, YAKIN? Link-link tersebut akan hilang permanen.')) {
+      return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Sedang Menghapus...';
+    log.textContent = 'Memulai proses penghapusan...\n';
+    
+    try {
+      const response = await fetch('/admin/api/clear-mirrors-start', { method: 'POST' });
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Terjadi kesalahan yang tidak diketahui');
+      }
+      
+      log.textContent += `\n========== PROSES SELESAI ==========\n`;
+      log.textContent += `Berhasil menghapus mirror dari ${result.modifiedCount} dokumen episode.\n`;
+      
+      btn.textContent = 'Selesai';
+      btn.style.backgroundColor = '#5cb85c'; // Hijau
+
+    } catch (error) {
+      log.textContent += `\n\nERROR KRITIS: ${error.message}\nProses dihentikan. Cek konsol server.`;
+      btn.textContent = 'Gagal (Cek Konsol Server)';
+      btn.disabled = false;
+    }
+  });
+</script>
+
+<%- include('../admin/partials/footer', { page: page }) %>

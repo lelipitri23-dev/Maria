@@ -1,0 +1,328 @@
+<%- include('../admin/partials/header', { /* data header */ }) %>
+<a href="/admin" class="admin-back-btn">« Kembali ke Dasbor</a>
+<h1>Edit Episode: <%= episode.title || episode.episodeSlug %></h1>
+
+<style>
+    .admin-back-btn {
+      display: inline-block;
+      margin-bottom: 20px;
+      padding: 6px 12px;
+      background-color: #555;
+      color: #fff !important;
+      border-radius: 4px;
+      font-size: 0.9em;
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .admin-back-btn:hover {
+      background-color: #666;
+      text-decoration: none;
+    }
+    
+    /* --- CSS Form yang Dirapikan --- */
+    .admin-form label { 
+      display: block; 
+      margin-bottom: 5px; 
+      font-weight: bold;
+    }
+    .admin-form input[type="text"], 
+    .admin-form input[type="url"], 
+    .admin-form textarea {
+        width: 100%;
+        padding: 8px; 
+        margin-bottom: 15px; 
+        background-color: #444;
+        border: 1px solid #666; 
+        color: #eee; 
+        border-radius: 4px;
+    }
+    .admin-form textarea { 
+        min-height: 150px; 
+        font-family: monospace;
+        white-space: pre;
+    }
+    .admin-form button { 
+        padding: 10px 20px; 
+        background-color: #4CAF50; 
+        color: white; 
+        border: none; 
+        border-radius: 4px; 
+        cursor: pointer; 
+        font-size: 1em;
+        margin-top: 10px;
+    }
+    .admin-form button:hover { 
+        background-color: #45a049;
+    }
+    
+    /* --- Style Tombol Khusus --- */
+    .btn-secondary { background-color: #5bc0de !important; } /* Biru untuk Add */
+    .btn-danger { 
+      background-color: #d9534f !important; /* Merah untuk Remove */
+      font-size: 0.8em !important; 
+      padding: 4px 8px !important; 
+      margin-left: 10px;
+    }
+    .btn-info { /* BARU: Tombol untuk Dood */
+      background-color: #31b0d5 !important;
+      color: white;
+      font-size: 0.8em !important; 
+      padding: 4px 8px !important;
+      margin-left: 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn-info:hover {
+      background-color: #269abc !important;
+    }
+    .btn-info:disabled {
+      background-color: #555 !important;
+      cursor: not-allowed;
+    }
+
+    /* --- Style Grup Input --- */
+    .link-group, .quality-group-admin { 
+      border: 1px dashed #555; 
+      padding: 15px; 
+      margin-bottom: 15px; 
+      border-radius: 5px;
+    }
+    .link-row { 
+      display: flex; 
+      gap: 10px; 
+      align-items: center; 
+      margin-bottom: 10px;
+    }
+    .link-row input { margin-bottom: 0; }
+    .link-row label { 
+      flex-basis: 80px; 
+      flex-shrink: 0; 
+      margin-bottom: 0;
+    }
+    .link-row input[name*="[name]"], 
+    .link-row input[name*="[host]"] { 
+      flex-basis: 150px; 
+      flex-shrink: 0;
+    }
+    .link-row input[name*="[url]"] { flex-grow: 1; }
+    
+    .quality-header { 
+      display:flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 10px;
+    }
+    .quality-header input { 
+      width: auto; 
+      margin-bottom: 0;
+    }
+</style>
+
+<% if (episode) { %>
+    <form class="admin-form" id="editEpisodeForm" action="/admin/episode<%= episode.episodeSlug %>/edit" method="POST">
+        <h2>Detail Episode</h2>
+        <div>
+            <label for="title">Judul Episode:</label>
+            <input type="text" id="title" name="title" value="<%= episode.title || '' %>">
+        </div>
+        <div>
+             <label for="episodeSlug">Slug Episode (Read Only):</label>
+            <input type="text" id="episodeSlug" name="episodeSlug" value="<%= episode.episodeSlug || '' %>" readonly style="background-color: #555;">
+        </div>
+
+        <hr style="margin: 30px 0;">
+
+        <h2>Streaming Links</h2>
+        <div id="streaming-links-container">
+            <% if(episode.streaming && episode.streaming.length > 0) { %>
+                <% episode.streaming.forEach((stream, index) => { %>
+                    <div class="link-group link-row">
+                        <label for="stream_name_<%= index %>">Server:</label>
+                        <input type="text" id="stream_name_<%= index %>" name="streams[<%= index %>][name]" value="<%= stream.name %>" placeholder="Nama Server (cth: turbovid)">
+                         <label for="stream_url_<%= index %>">URL:</label>
+                         
+                         <%# BARU: Menambahkan class 'stream-url-input' %>
+                        <input type="url" id="stream_url_<%= index %>" name="streams[<%= index %>][url]" value="<%= stream.url %>" placeholder="https://..." class="stream-url-input">
+                        
+                        <%# BARU: Tombol Remote Upload %>
+                        <button type="button" class="btn-info remote-upload-btn" title="Upload ke DoodStream Mirror">Upload to Dood</button>
+                        
+                        <button type="button" class="btn-danger remove-stream-btn">Remove</button>
+                    </div>
+                <% }) %>
+            <% } %>
+        </div>
+        <button type="button" id="add-stream-btn" class="btn-secondary">Tambah Link Stream</button>
+
+        <hr style="margin: 30px 0;">
+
+        <h2>Download Links</h2>
+        <div id="download-links-container">
+             <% if(episode.downloads && episode.downloads.length > 0) { %>
+                <% episode.downloads.forEach((dl, qualityIndex) => { %>
+                    <div class="quality-group-admin">
+                        <div class="quality-header">
+                            <label for="quality_name_<%= qualityIndex %>">Kualitas:</label>
+                            <input type="text" id="quality_name_<%= qualityIndex %>" name="downloads[<%= qualityIndex %>][quality]" value="<%= dl.quality %>" placeholder="Contoh: 1080p">
+                            <button type="button" class="btn-danger remove-quality-btn">Remove Quality</button>
+                        </div>
+                        <div class="download-links-list">
+                            <% dl.links.forEach((link, linkIndex) => { %>
+                                <div class="link-row">
+                                    <label for="dl_host_<%= qualityIndex %>_<%= linkIndex %>">Host:</label>
+                                    <input type="text" id="dl_host_<%= qualityIndex %>_<%= linkIndex %>" name="downloads[<%= qualityIndex %>][links][<%= linkIndex %>][host]" value="<%= link.host %>" placeholder="Nama Host (cth: Drive)">
+                                    <label for="dl_url_<%= qualityIndex %>_<%= linkIndex %>">URL:</label>
+                                    <input type="url" id="dl_url_<%= qualityIndex %>_<%= linkIndex %>" name="downloads[<%= qualityIndex %>][links][<%= linkIndex %>][url]" value="<%= link.url %>" placeholder="https://...">
+                                    <button type="button" class="btn-danger remove-download-link-btn">Remove Link</button>
+                                </div>
+                            <% }) %>
+                        </div>
+                        <button type="button" class="btn-secondary add-download-link-btn" data-quality-index="<%= qualityIndex %>">Tambah Link Download</button>
+                    </div>
+                <% }) %>
+             <% } %>
+        </div>
+        <button type="button" id="add-quality-btn" class="btn-secondary">Tambah Kualitas Download</button>
+
+        <hr style="margin: 30px 0;">
+
+        <button type="submit">Update Episode</button>
+    </form>
+<% } else { %>
+    <p>Episode tidak ditemukan.</p>
+<% } %>
+
+<%- include('../partials/footer', { page: page }) %>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const streamContainer = document.getElementById('streaming-links-container');
+    const addStreamBtn = document.getElementById('add-stream-btn');
+    const downloadContainer = document.getElementById('download-links-container');
+    const addQualityBtn = document.getElementById('add-quality-btn');
+    let streamIndex = streamContainer.querySelectorAll('.link-group').length;
+    let qualityIndex = downloadContainer.querySelectorAll('.quality-group-admin').length;
+
+    // --- STREAMING (ADD) ---
+    addStreamBtn.addEventListener('click', () => {
+        const div = document.createElement('div');
+        div.className = 'link-group link-row';
+        div.innerHTML = `
+            <label for="stream_name_${streamIndex}">Server:</label>
+            <input type="text" id="stream_name_${streamIndex}" name="streams[${streamIndex}][name]" placeholder="Nama Server">
+            <label for="stream_url_${streamIndex}">URL:</label>
+             <input type="url" id="stream_url_${streamIndex}" name="streams[${streamIndex}][url]" placeholder="https://..." class="stream-url-input">
+            <button type="button" class="btn-info remote-upload-btn" title="Upload ke DoodStream Mirror">Upload to Dood</button>
+            <button type="button" class="btn-danger remove-stream-btn">Remove</button>
+        `;
+        streamContainer.appendChild(div);
+        streamIndex++;
+    });
+
+    // --- DOWNLOADS (ADD/REMOVE) ---
+    addQualityBtn.addEventListener('click', () => {
+        const div = document.createElement('div');
+        div.className = 'quality-group-admin';
+        const currentQualityIndex = qualityIndex;
+        div.innerHTML = `
+            <div class="quality-header">
+                <label for="quality_name_${currentQualityIndex}">Kualitas:</label>
+                <input type="text" id="quality_name_${currentQualityIndex}" name="downloads[${currentQualityIndex}][quality]" placeholder="Contoh: 720p">
+                <button type="button" class="btn-danger remove-quality-btn">Remove Quality</button>
+            </div>
+            <div class="download-links-list">
+                </div>
+            <button type="button" class="btn-secondary add-download-link-btn" data-quality-index="${currentQualityIndex}">Tambah Link Download</button>
+        `;
+        downloadContainer.appendChild(div);
+        qualityIndex++;
+    });
+
+    downloadContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-quality-btn')) {
+            e.target.closest('.quality-group-admin').remove();
+        }
+        if (e.target.classList.contains('add-download-link-btn')) {
+            const qualityIdx = e.target.getAttribute('data-quality-index');
+            const linksListDiv = e.target.previousElementSibling;
+            const linkIndex = linksListDiv.querySelectorAll('.link-row').length;
+            const linkDiv = document.createElement('div');
+            linkDiv.className = 'link-row';
+            linkDiv.innerHTML = `
+                <label for="dl_host_${qualityIdx}_${linkIndex}">Host:</label>
+                <input type="text" id="dl_host_${qualityIdx}_${linkIndex}" name="downloads[${qualityIdx}][links][${linkIndex}][host]" placeholder="Nama Host">
+                 <label for="dl_url_${qualityIdx}_${linkIndex}">URL:</label>
+                <input type="url" id="dl_url_${qualityIdx}_${linkIndex}" name="downloads[${qualityIdx}][links][${linkIndex}][url]" placeholder="https://...">
+                <button type="button" class="btn-danger remove-download-link-btn">Remove Link</button>
+            `;
+            linksListDiv.appendChild(linkDiv);
+        }
+        if (e.target.classList.contains('remove-download-link-btn')) {
+            e.target.closest('.link-row').remove();
+        }
+    });
+    
+    // ==========================================================
+    // == BARU: SKRIP UNTUK REMOTE UPLOAD & REMOVE STREAM ==
+    // ==========================================================
+    streamContainer.addEventListener('click', async (e) => {
+        // Handle Tombol Remove
+        if (e.target.classList.contains('remove-stream-btn')) {
+            e.target.closest('.link-group').remove();
+        }
+        
+        // Handle Tombol Upload to Dood
+        if (e.target.classList.contains('remote-upload-btn')) {
+            e.preventDefault();
+            const button = e.target;
+            const row = button.closest('.link-row');
+            const urlInput = row.querySelector('.stream-url-input');
+            const episodeSlugInput = document.getElementById('episodeSlug'); // Ambil slug dari form
+
+            const videoUrl = urlInput ? urlInput.value : '';
+            const episodeSlug = episodeSlugInput ? episodeSlugInput.value : '';
+
+            if (!videoUrl || !episodeSlug) {
+                alert('URL Video atau Slug Episode tidak ditemukan.');
+                return;
+            }
+
+            if (!confirm(`Anda yakin ingin me-remote upload URL ini ke DoodStream?\n\nURL: ${videoUrl}`)) {
+                return;
+            }
+
+            const originalText = button.textContent;
+            button.textContent = 'Uploading...';
+            button.disabled = true;
+
+            try {
+                const response = await fetch('/admin/api/remote-upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        episodeSlug: episodeSlug,
+                        videoUrl: videoUrl
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Gagal melakukan upload.');
+                }
+
+                alert(`Berhasil! Link "Mirror" baru telah ditambahkan:\n${result.newLink.url}\n\nHalaman akan dimuat ulang.`);
+                window.location.reload(); 
+
+            } catch (error) {
+                console.error('Remote Upload Error:', error);
+                alert(`Error: ${error.message}`);
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+    });
+});
+</script>

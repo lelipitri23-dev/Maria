@@ -1,0 +1,32 @@
+<%- include('partials/header', { /* data header */ }) %>
+
+<main class="flex-1 w-full min-w-0">
+  <div class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
+    
+    <div class="flex items-center justify-between p-5 border-b border-[#33303f]">
+      <h1 class="text-lg font-bold text-white uppercase border-l-4 border-primary pl-3">
+        Jadwal Rilis Hentai
+      </h1>
+      <span class="text-xs text-muted hidden sm:block">Sumber: Jikan API (MyAnimeList)</span>
+    </div>
+
+    <div class="p-5">
+      <p class="text-center text-sm text-muted mb-6">Daftar rilis terbaru dan yang akan datang.</p>
+      
+      <div id="jadwal-loading" class="flex flex-col items-center justify-center py-12 text-muted">
+        <svg class="animate-spin h-8 w-8 text-primary mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p>Memuat jadwal...</p>
+      </div>
+      
+      <div id="jadwal-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        </div>
+    </div>
+    
+  </div>
+</main>
+
+<%- include('partials/sidebar', { page: page }) %>
+<%- include('partials/footer', { page: page }) %>

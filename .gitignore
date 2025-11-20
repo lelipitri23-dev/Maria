@@ -1,0 +1,8 @@
+# Abaikan file environment
+.env
+
+# Abaikan semua file di dalam node_modules
+node_modules/
+
+# Abaikan file all_slugs_cv.txt
+migration.js

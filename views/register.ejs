@@ -1,0 +1,60 @@
+<%- include('partials/header', { page: page }) %>
+
+<main class="flex-1 w-full min-w-0 flex items-center justify-center min-h-[60vh] py-10">
+  <div class="w-full max-w-md bg-card rounded-xl shadow-2xl border border-[#33303f] overflow-hidden">
+    
+    <div class="bg-darker/50 p-8 text-center border-b border-[#33303f]">
+      <h1 class="text-base md:text-lg font-bold text-[var(--text-main)] uppercase border-l-4 border-primary pl-3 leading-tight">Buat Akun</h1>
+      <p class="text-sm text-gray-500">Bergabunglah dengan komunitas kami</p>
+    </div>
+
+    <div class="p-8">
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded mb-6 text-center flex items-center justify-center gap-2">
+          <i class="fas fa-exclamation-circle"></i>
+          <%= error %>
+        </div>
+      <% } %>
+
+      <form id="registerForm" action="/register" method="POST" class="space-y-5">
+        
+        <div class="space-y-1">
+          <label for="reg-username" class="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Username</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <i class="fas fa-user text-gray-500 text-sm"></i>
+            </div>
+            <input type="text" id="reg-username" name="username" placeholder="Minimal 6 karakter" required minlength="6"
+              class="w-full bg-darker border border-[#33303f] text-white rounded-lg py-3 pl-10 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder-gray-600">
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <label for="reg-password" class="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Password</label>
+          <div class="relative">
+             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <i class="fas fa-lock text-gray-500 text-sm"></i>
+            </div>
+            <input type="password" id="reg-password" name="password" placeholder="Minimal 6 karakter" required minlength="6"
+              class="w-full bg-darker border border-[#33303f] text-white rounded-lg py-3 pl-10 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder-gray-600">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-gradient-to-r from-primary to-pink-600 hover:from-pink-600 hover:to-primary text-white font-bold py-3 rounded-lg shadow-lg shadow-primary/20 transition-all transform hover:-translate-y-0.5">
+          Daftar Sekarang
+        </button>
+      </form>
+
+      <div class="mt-6 text-center border-t border-[#33303f] pt-6">
+        <p class="text-sm text-gray-500">
+          Sudah punya akun? 
+          <a href="/login" class="text-primary hover:text-white font-bold transition-colors ml-1">Login di sini</a>
+        </p>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<%- include('partials/sidebar', { page: page }) %>
+<%- include('partials/footer', { page: page }) %>

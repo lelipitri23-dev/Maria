@@ -1,0 +1,41 @@
+<%- include('partials/header', { page: page }) %>
+
+<div class="flex-1 w-full min-w-0">
+  <article class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
+    <div class="flex items-center justify-between p-4 border-b border-[#33303f]">
+      <h1 class="text-lg font-bold text-white uppercase border-l-4 border-primary pl-3">
+        Halo, <span class="text-primary"><%= user ? user.username : 'Tamu' %></span>
+      </h1>
+      <% if (user) { %>
+        <a href="/logout" class="text-xs bg-[#333] hover:bg-red-600 text-white px-3 py-1 rounded transition-colors">Keluar</a>
+      <% } else { %>
+        <a href="/login" class="text-xs bg-primary hover:bg-primary-hover text-white px-3 py-1 rounded transition-colors">Login</a>
+      <% } %>
+    </div>
+
+    <% if (!user) { %>
+      <div class="p-8 text-center">
+        <p class="text-gray-400 mb-4">Anda harus login untuk melihat bookmark.</p>
+        <a href="/login" class="inline-block bg-primary text-white px-6 py-2 rounded-full font-bold hover:bg-primary-hover transition-colors">Login Sekarang</a>
+      </div>
+    <% } else { %>
+      <div class="p-4 text-sm text-gray-400 border-b border-[#33303f]">
+        Simpan hentai favoritmu sekarang juga!
+      </div>
+      
+      <div class="p-4">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-base font-bold text-white">Anime Favorit (<span id="bookmark-count">...</span>)</h2>
+          <button id="clearBookmarksBtn" class="text-xs text-red-500 hover:text-red-400 font-bold hidden">Hapus Semua</button>
+        </div>
+
+        <div id="bookmark-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <p id="loading-message" class="col-span-full text-center py-8 text-muted">Memuat bookmark...</p>
+          </div>
+      </div>
+    <% } %>
+  </article>
+</div>
+
+<%- include('partials/sidebar', { page: page }) %>
+<%- include('partials/footer', { page: page }) %>
