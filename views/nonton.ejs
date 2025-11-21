@@ -1,6 +1,7 @@
 <%- include('partials/header', { /* data header */ }) %>
 
 <% 
+  // Filter stream agar tidak menampilkan 'bonus'
   const filteredStreams = data.streaming ? data.streaming.filter(stream => stream.name.toLowerCase() !== 'bonus') : [];
 %>
 
@@ -22,6 +23,8 @@
             const firstStream = filteredStreams[0];
             const streamName = firstStream.name.toLowerCase();
             let firstIframeString;
+            
+            // Logic Generate Iframe
             if (['mirror', 'viplay', 'earnvids'].includes(streamName)) {
               const decodedEmbedUrl = Buffer.from(firstStream.url, 'base64').toString('utf8');
               firstIframeString = `<iframe src="${decodedEmbedUrl}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
@@ -67,6 +70,7 @@
       </div>
 
       <div class="flex items-center gap-2 w-full lg:w-auto justify-center lg:justify-end flex-wrap">
+         
          <% if (nav.prev) { %>
            <a href="<%= nav.prev.url %>" class="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-4 py-2 rounded transition-colors">« Prev</a>
          <% } else { %>
@@ -75,6 +79,24 @@
          
          <a href="<%= nav.all %>" class="bg-card hover:bg-primary hover:text-white text-[var(--text-main)] text-xs font-bold px-4 py-2 rounded transition-colors border border-[#444]">Semua</a>
 
+         <% if (parentAnime && parentAnime.episodes) { %>
+           <div class="relative hidden md:block">
+             <select onchange="if(this.value) window.location.href=this.value" class="bg-card text-[var(--text-main)] text-xs font-bold px-2 py-2 rounded border border-[#444] focus:border-primary outline-none cursor-pointer max-w-[150px] truncate">
+                <option value="" disabled>Pilih Episode</option>
+                <% parentAnime.episodes.forEach(ep => { 
+                     const isCurrent = (data.episodeSlug === ep.url); 
+                     let displayTitle = ep.title;
+                     const match = ep.title.match(/Episode\s+(\d+)/i);
+                     if(match) displayTitle = 'Ep ' + parseInt(match[1]);
+                %>
+                   <option value="/anime<%= ep.url %>" <%= isCurrent ? 'selected' : '' %>>
+                      <%= displayTitle %>
+                   </option>
+                <% }) %>
+             </select>
+           </div>
+         <% } %>
+         
          <% if (nav.next) { %>
            <a href="<%= nav.next.url %>" class="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-4 py-2 rounded transition-colors">Next »</a>
          <% } else { %>
@@ -89,11 +111,12 @@
         
         <div class="w-full md:w-[200px] flex-shrink-0 mx-auto md:mx-0">
            <img src="<%= pageImage %>" class="w-full rounded-md shadow-lg object-cover border border-[#33303f]" alt="<%= data.title %>">
+           
            <div class="text-center mt-4">
-   <button id="singletonform" class="w-full bg-[#d9534f] hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-bold transition-colors shadow-md flex items-center justify-center gap-2">
-     <i class="fas fa-exclamation-triangle"></i> Lapor Error!
-   </button>
-</div>
+               <button id="singletonform" class="w-full bg-[#d9534f] hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-bold transition-colors shadow-md flex items-center justify-center gap-2">
+                 <i class="fas fa-exclamation-triangle"></i> Lapor Error!
+               </button>
+           </div>
         </div>
 
         <div class="flex-1 min-w-0">
@@ -127,27 +150,25 @@
             <% } %>
 
             <h3 class="text-sm font-bold text-[var(--text-main)] mb-2 uppercase text-muted">Sinopsis</h3>
-            <p class="text-sm text-muted leading-relaxed mb-6">
+            <p class="text-sm text-muted leading-relaxed mb-6 text-justify">
                <%= (typeof parentAnime !== 'undefined' && parentAnime.synopsis) ? parentAnime.synopsis : '...' %>
             </p>
             
-            <% if(data.downloads && data.downloads.length > 0) { %>
+            <% if(filteredStreams && filteredStreams.length > 0) { %>
               <div class="bg-darker p-4 rounded border border-[#33303f]">
-                <% data.downloads.forEach(dl => { %>
-                  <div class="mb-3 last:mb-0">
-                    <div class="flex items-center gap-3 mb-2">
-                        <span class="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded"><%= dl.quality %></span>
-                        <div class="h-px bg-[#33303f] flex-1"></div>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                      <% dl.links.forEach(link => { %>
-                        <a href="/safelink?url=<%= link.url %>" target="_blank" class="bg-card hover:bg-primary hover:text-white text-[var(--text-main)] text-[10px] px-3 py-1.5 rounded transition-colors border border-[#444]">
-                          <%= link.host %>
-                        </a>
-                      <% }) %>
-                    </div>
+                <div class="mb-3 last:mb-0">
+                  <div class="flex items-center gap-3 mb-2">
+                      <span class="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded">Server / Download</span>
+                      <div class="h-px bg-[#33303f] flex-1"></div>
                   </div>
-                <% }) %>
+                  <div class="flex flex-wrap gap-2">
+                    <% filteredStreams.forEach(stream => { %>
+                      <a href="/safelink?url=<%= stream.url %>" target="_blank" class="bg-card hover:bg-primary hover:text-white text-[var(--text-main)] text-[10px] px-3 py-1.5 rounded transition-colors border border-[#444]">
+                        <%= stream.name %>
+                      </a>
+                    <% }) %>
+                  </div>
+                </div>
               </div>
             <% } %>
 
@@ -184,15 +205,19 @@
         <% latestSeries.forEach((anime) => { %>
             <article class="group relative bg-darker rounded-md overflow-hidden border border-[#33303f] hover:border-primary hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-lg">
               <a href="/anime/<%= encodeURIComponent(anime.pageSlug) %>" title="<%= anime.title %>">
+                 
                  <div class="relative aspect-[2/3] overflow-hidden bg-gray-800">
                   <img src="<%= anime.imageUrl || '/images/default.jpg' %>" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 lazy-load opacity-0" data-src="<%= anime.imageUrl || '/images/default.jpg' %>" alt="<%= anime.title %>">
+                  
                   <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                      <i class="fas fa-play text-3xl text-white"></i>
                   </div>
+                  
                   <span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">
                     <%= anime.info.Status || '?' %>
                   </span>
                 </div>
+
                 <div class="p-3">
                   <h2 class="text-xs sm:text-sm font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors"><%= anime.title %></h2>
                 </div>
@@ -202,13 +227,16 @@
       </div>
     </div>
   <% } %>
+
 </main>
 
 <%- include('partials/sidebar', { page: page }) %>
 
 <div id="shadow" class="fixed inset-0 bg-black/95 z-[999] hidden transition-opacity duration-300"></div>
+
 <script>
   $(document).ready(function () {
+    // Fitur Matikan Lampu
     $(".light").click(function () {
       $("#shadow").fadeToggle();
       $(this).toggleClass("relative z-[1001] bg-white text-black hover:bg-gray-200 border-transparent");
@@ -217,14 +245,18 @@
       else $(this).text("Matikan Lampu");
     });
   });
+
+  // Ganti Server
   function loadMi(el) {
     var embed = el.getAttribute('data-em');
     if (!embed) embed = document.getElementById('pembed').getAttribute('data-default');
     load_embed(embed);
   }
+
+  // Render Iframe
   function load_embed(embed) {
     var player = jQuery("#pembed");
-    player.css({'background': '#000 url(/loading.svg) center no-repeat', 'background-size': '50px'});
+    player.css({'background': '#000 url(/images/loading.svg) center no-repeat', 'background-size': '50px'});
     player.html(""); 
     if (embed) {
         try {
