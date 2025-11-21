@@ -2,10 +2,9 @@
 <html lang="id" class="scroll-smooth dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> 
   <meta name="theme-color" content="#e97991">
-  <meta name="google-site-verification" content="RGW8HHjrW7oEipY0bk7BK0c972YB-ZGCzrpx9ETlkk0" />
-  <meta name="msvalidate.01" content="87763CAEE8A6CA4B49B69AE4943336B3" />
+  <meta name="google-site-verification" content="temK8AAV3FjnmEOZXqRUDcWsxa2SBZmwUl2zzkIjo8I" />
 
   <title><%= pageTitle %></title>
   <meta name="title" content="<%= pageTitle %>">
@@ -26,42 +25,43 @@
   <meta property="twitter:image" content="<%= (typeof pageImage !== 'undefined' && pageImage) ? pageImage : '/images/default.jpg' %>">
 
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.1.1/css/all.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
-    /* DEFINISI WARNA DINAMIS (LIGHT & DARK) */
+    /* VAR WARNA DINAMIS */
     :root {
-      /* -- Light Mode -- */
-      --primary-color: #e97991;       /* Definisi warna Pink */
+      --primary-color: #e97991;
       --primary-hover: #d15f76;
-      
       --bg-body: #f3f4f6;       
       --bg-card: #ffffff;       
       --bg-darker: #e5e7eb;     
       --text-main: #1f2937;     
       --text-muted: #6b7280;    
-      --border-color: #e5e7eb;  
+      --border-color: #e5e7eb;
     }
 
     .dark {
-      /* -- Dark Mode (Default) -- */
-      --primary-color: #e97991;       /* Sama di dark mode */
+      --primary-color: #e97991;
       --primary-hover: #d15f76;
-
       --bg-body: #16151d;       
       --bg-card: #22202b;       
       --bg-darker: #22202b;     
       --text-main: #ececec;     
       --text-muted: #a0a0a0;    
-      --border-color: #33303f;  
+      --border-color: #33303f;
     }
 
     body { 
       background-color: var(--bg-body); 
       color: var(--text-main); 
       transition: background-color 0.3s, color 0.3s;
+      padding-bottom: 80px; /* Ruang untuk menu bawah */
+    }
+
+    @media (min-width: 1024px) {
+        body { padding-bottom: 0; }
     }
 
     /* Custom Scrollbar */
@@ -79,16 +79,12 @@
       theme: {
         extend: {
           colors: {
-            // Menghubungkan class Tailwind ke variabel CSS di atas
             primary: 'var(--primary-color)',
             'primary-hover': 'var(--primary-hover)',
-            
             dark: 'var(--bg-body)',         
             card: 'var(--bg-card)',          
             darker: 'var(--bg-darker)',       
             muted: 'var(--text-muted)',
-            
-            // Override warna border hardcoded
             '#33303f': 'var(--border-color)', 
           },
           fontFamily: {
@@ -98,7 +94,6 @@
       }
     }
 
-    // Cek Tema saat loading agar tidak kedip
     if (localStorage.getItem('theme') === 'light') {
       document.documentElement.classList.remove('dark');
     } else {
@@ -110,27 +105,24 @@
 <body class="antialiased font-sans selection:bg-primary selection:text-white flex flex-col min-h-screen">
 
   <nav class="sticky top-0 z-50 w-full bg-card/90 backdrop-blur-md border-b border-[#33303f] shadow-lg transition-colors duration-300">
-    <div class="max-w-[1200px] mx-auto px-4 h-[65px] flex items-center justify-between">
+    <div class="max-w-[1200px] mx-auto px-4 h-[60px] lg:h-[65px] flex items-center justify-between gap-4">
       
-      <div class="flex items-center gap-4">
-        <button id="mobile-menu-btn" class="lg:hidden text-2xl text-[var(--text-main)] hover:text-primary transition-colors">
-          <i class="fas fa-bars"></i>
-        </button>
-        
-        <a href="/home" class="flex items-center gap-2 group">
-          <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-            <i class="fas fa-play text-white text-xs"></i>
-          </div>
-          <h1 class="text-lg font-extrabold uppercase tracking-wider text-[var(--text-main)]">
-            <%= (typeof siteName !== 'undefined') ? siteName : 'NontonHentai' %>
-          </h1>
-        </a>
-      </div>
+      <a href="/home" class="flex items-center gap-2 group flex-shrink-0">
+        <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+          <i class="fas fa-play text-white text-xs"></i>
+        </div>
+        <h1 class="text-lg font-extrabold uppercase tracking-wider text-[var(--text-main)] hidden sm:block">
+          <%= (typeof siteName !== 'undefined') ? siteName : 'NontonHentai' %>
+        </h1>
+        <h1 class="text-lg font-extrabold uppercase tracking-wider text-[var(--text-main)] sm:hidden">
+          <%= (typeof siteName !== 'undefined') ? siteName : 'NontonHentai' %>
+        </h1>
+      </a>
 
-      <div class="hidden lg:block relative flex-1 max-w-md mx-8">
+      <div class="hidden lg:block flex-1 max-w-md">
         <form action="/search" method="get" class="relative group">
           <input type="text" name="q" placeholder="Cari judul/genre..." 
-            class="w-full bg-darker border border-[#33303f] rounded-full py-2 px-5 pl-10 text-sm text-[var(--text-main)] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder-gray-500">
+            class="w-full bg-darker border border-[#33303f] rounded-full py-2 px-4 pl-10 text-sm text-[var(--text-main)] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder-gray-500">
           <button type="submit" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary">
             <i class="fas fa-search"></i>
           </button>
@@ -140,7 +132,7 @@
       <div class="hidden lg:flex items-center gap-6">
         <ul class="flex items-center gap-6 text-xs font-bold uppercase text-muted">
           <li><a href="/home" class="hover:text-primary transition-colors">Home</a></li>
-          <li><a href="/hentai-list" class="hover:text-primary transition-colors">Hentai List</a></li>
+          <li><a href="/hentai-list" class="hover:text-primary transition-colors">Index</a></li>
           <li><a href="/genre-list" class="hover:text-primary transition-colors">Genre</a></li>
           <li><a href="/jadwal" class="hover:text-primary transition-colors">Jadwal</a></li>
           <li><a href="/bookmarks" class="hover:text-primary transition-colors">Bookmark</a></li>
@@ -154,40 +146,70 @@
         <a href="/random" class="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-4 py-1.5 rounded-full transition-all shadow-lg shadow-primary/30 uppercase">Acak</a>
       </div>
 
-      <button id="theme-toggle-mobile" class="lg:hidden w-8 h-8 rounded-full bg-darker border border-[#33303f] flex items-center justify-center text-yellow-400 hover:bg-primary hover:text-white transition-all">
+      <button id="theme-toggle-mobile" class="lg:hidden w-8 h-8 rounded-full bg-darker border border-[#33303f] flex-shrink-0 flex items-center justify-center text-yellow-400 hover:bg-primary hover:text-white transition-all">
           <i class="fas fa-sun hidden dark:block"></i>
           <i class="fas fa-moon block dark:hidden text-gray-600"></i>
       </button>
 
     </div>
-
-    <div id="mobile-menu" class="hidden lg:hidden bg-card border-t border-[#33303f] absolute w-full left-0 shadow-xl transition-colors duration-300">
-      <div class="p-4 space-y-4">
-        <form action="/search" method="get" class="relative">
-          <input type="text" name="q" placeholder="Cari..." class="w-full bg-darker p-3 rounded-lg text-[var(--text-main)] border border-[#33303f] text-sm">
-        </form>
-        <ul class="flex flex-col gap-2 font-bold text-muted text-sm uppercase">
-          <li><a href="/home" class="block p-3 hover:bg-primary/10 hover:text-primary rounded border-b border-[#33303f]">Home</a></li>
-          <li><a href="/hentai-list" class="block p-3 hover:bg-primary/10 hover:text-primary rounded border-b border-[#33303f]">Hentai List</a></li>
-          <li><a href="/genre-list" class="block p-3 hover:bg-primary/10 hover:text-primary rounded border-b border-[#33303f]">Genre</a></li>
-          <li><a href="/jadwal" class="block p-3 hover:bg-primary/10 hover:text-primary rounded border-b border-[#33303f]">Jadwal</a></li>
-          <li><a href="/bookmarks" class="block p-3 hover:bg-primary/10 hover:text-primary rounded border-b border-[#33303f]">Bookmark</a></li>
-          <li><a href="/random" class="block p-3 text-primary font-extrabold">Acak</a></li>
-        </ul>
-      </div>
-    </div>
   </nav>
+
+  <div id="search-modal" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+    <div class="bg-card border border-[#33303f] w-full max-w-md rounded-2xl p-6 shadow-2xl transform scale-95 transition-transform duration-300" id="search-modal-content">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-lg font-bold text-[var(--text-main)]">Pencarian</h3>
+            <button id="close-search" class="text-muted hover:text-primary text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-darker transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form action="/search" method="get" class="relative">
+            <input type="text" name="q" placeholder="Ketik judul anime..." 
+                class="w-full bg-darker border border-[#33303f] rounded-full py-3 px-5 pl-12 text-sm text-[var(--text-main)] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder-gray-500" autocomplete="off">
+            <button type="submit" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-primary">
+                <i class="fas fa-search text-lg"></i>
+            </button>
+        </form>
+    </div>
+  </div>
+
+  <div class="fixed bottom-0 left-0 w-full z-[90] bg-card/95 backdrop-blur-md border-t border-[#33303f] lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.1)] pb-safe">
+    <div class="grid grid-cols-5 h-[65px]">
+      
+      <a href="/home" class="flex flex-col items-center justify-center group text-muted hover:text-primary transition-colors">
+        <i class="fas fa-home text-lg mb-1 group-hover:scale-110 transition-transform"></i>
+        <span class="text-[10px] font-medium">Home</span>
+      </a>
+
+      <a href="/jadwal" class="flex flex-col items-center justify-center group text-muted hover:text-primary transition-colors">
+        <i class="fas fa-calendar-alt text-lg mb-1 group-hover:scale-110 transition-transform"></i>
+        <span class="text-[10px] font-medium">Jadwal</span>
+      </a>
+
+      <button id="mobile-search-btn" class="flex flex-col items-center justify-center group text-muted hover:text-primary transition-colors -mt-5">
+        <div class="w-12 h-12 bg-card rounded-full flex items-center justify-center border-2 border-primary text-primary shadow-lg shadow-primary/30 group-hover:scale-110 transition-transform">
+            <i class="fas fa-search text-lg"></i>
+        </div>
+        <span class="text-[10px] font-medium mt-1">Cari</span>
+      </button>
+
+      <a href="/hentai-list" class="flex flex-col items-center justify-center group text-muted hover:text-primary transition-colors">
+        <i class="fas fa-list-ul text-lg mb-1 group-hover:scale-110 transition-transform"></i>
+        <span class="text-[10px] font-medium">Daftar</span>
+      </a>
+
+      <a href="/bookmarks" class="flex flex-col items-center justify-center group text-muted hover:text-primary transition-colors">
+        <i class="fas fa-user text-lg mb-1 group-hover:scale-110 transition-transform"></i>
+        <span class="text-[10px] font-medium">Saya</span>
+      </a>
+
+    </div>
+  </div>
 
   <div id="content" class="flex-grow w-full max-w-[1200px] mx-auto mt-0 md:mt-6 px-0 md:px-4">
     <div class="wrapper flex flex-col lg:flex-row gap-0 md:gap-6 items-start">
       
       <script>
-        const btn = document.getElementById('mobile-menu-btn');
-        const menu = document.getElementById('mobile-menu');
-        btn.addEventListener('click', () => {
-          menu.classList.toggle('hidden');
-        });
-
+        // --- THEME LOGIC ---
         const toggleBtns = document.querySelectorAll('#theme-toggle, #theme-toggle-mobile');
         const htmlElement = document.documentElement;
 
@@ -201,5 +223,42 @@
               localStorage.setItem('theme', 'dark');
             }
           });
+        });
+
+        // --- SEARCH POPUP LOGIC ---
+        const searchModal = document.getElementById('search-modal');
+        const searchModalContent = document.getElementById('search-modal-content');
+        const mobileSearchBtn = document.getElementById('mobile-search-btn');
+        const closeSearchBtn = document.getElementById('close-search');
+        const searchInput = searchModal.querySelector('input');
+
+        function toggleSearch() {
+            if (searchModal.classList.contains('hidden')) {
+                // Buka Modal
+                searchModal.classList.remove('hidden');
+                // Animasi Masuk
+                requestAnimationFrame(() => {
+                    searchModal.classList.remove('opacity-0');
+                    searchModalContent.classList.remove('scale-95');
+                    searchModalContent.classList.add('scale-100');
+                });
+                setTimeout(() => searchInput.focus(), 100); // Auto focus
+            } else {
+                // Tutup Modal
+                searchModal.classList.add('opacity-0');
+                searchModalContent.classList.remove('scale-100');
+                searchModalContent.classList.add('scale-95');
+                setTimeout(() => {
+                    searchModal.classList.add('hidden');
+                }, 300); // Tunggu animasi selesai
+            }
+        }
+
+        if(mobileSearchBtn) mobileSearchBtn.addEventListener('click', toggleSearch);
+        if(closeSearchBtn) closeSearchBtn.addEventListener('click', toggleSearch);
+        
+        // Tutup jika klik di luar box
+        searchModal.addEventListener('click', (e) => {
+            if(e.target === searchModal) toggleSearch();
         });
       </script>
