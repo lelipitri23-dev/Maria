@@ -1544,15 +1544,27 @@ app.get('/tahun/:year/page/:pageNumber(\\d+)/?', (req, res) => {
   handleOldPagination(req, res, `/tahun/${req.params.year}`);
 });
 
-// RUTE REDIRECT (URL LAMA)
-app.get('/nonton/:episodeSlug(*)', (req, res) => {
-  const episodeSlug = req.params.episodeSlug; 
-  if (episodeSlug) {
-    res.redirect(301, `${episodeSlug}`);
-  } else {
-    res.redirect(301, '/');
+// RUTE REDIRECT DARI /nonton/ (Legacy Nekopoi)
+// Mengubah: /nonton/judul-anime-episode-1 -> /anime/judul-anime/1
+app.get('/nonton/:slug', (req, res) => {
+  const rawSlug = req.params.slug; // isinya: "boku-ni...-episode-1"
+
+  // Regex untuk memisahkan Judul dan Nomor Episode
+  // Pola: Ambil teks sebelum "-episode-" sebagai Group 1, dan angka setelahnya sebagai Group 2
+  const match = rawSlug.match(/^(.+)-episode-(\d+)$/i);
+
+  if (match) {
+    const animeSlug = match[1]; // "boku-ni-sexfriend-ga-dekita-riyuu"
+    const episodeNum = match[2]; // "1"
+
+    // Redirect 301 (Permanen) ke format baru
+    return res.redirect(301, `/anime/${animeSlug}/${episodeNum}`);
   }
+
+  // Jika pola tidak cocok (misal URL aneh), lempar ke Home
+  res.redirect(301, '/');
 });
+
 
 app.get('/page/:pageNumber(\\d+)/?', (req, res) => {
   res.redirect(301, `/home?page=${req.params.pageNumber}`);
