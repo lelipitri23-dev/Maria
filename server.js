@@ -909,7 +909,7 @@ app.get('/home', async (req, res) => {
 
     const latestSeriesQuery = Anime.find({})
       .sort({ createdAt: -1 })
-      .limit(8)
+      .limit(10)
       .select('pageSlug imageUrl title info.Type info.Released info.Status')
       .lean();
     
@@ -1183,7 +1183,7 @@ app.get('/hentai-list', async (req, res) => {
       // 1. Definisikan query untuk 'latestSeries'
       const latestSeriesQuery = Anime.find({})
         .sort({ createdAt: -1 })
-        .limit(8) // Anda bisa sesuaikan jumlah ini
+        .limit(10) // Anda bisa sesuaikan jumlah ini
         .select('pageSlug imageUrl title info.Type info.Released info.Status')
         .lean();
    
@@ -1308,7 +1308,7 @@ app.get('/anime/:animeId/:episodeNum', async (req, res) => {
 
   const latestSeriesQuery = Anime.find({})
       .sort({ createdAt: -1 })
-      .limit(8)
+      .limit(10)
       .select('pageSlug imageUrl title info.Type info.Released info.Status')
       .lean();
 
@@ -1390,7 +1390,7 @@ app.get('/anime/:slug', async (req, res) => {
     
     const latestSeriesQuery = Anime.find({})
       .sort({ createdAt: -1 })
-      .limit(8)
+      .limit(10)
       .select('pageSlug imageUrl title info.Type info.Released info.Status')
       .lean();
 
