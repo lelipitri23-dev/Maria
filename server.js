@@ -1467,11 +1467,22 @@ app.get('/page/:pageNumber(\\d+)/?', (req, res) => {
   res.redirect(301, `/home?page=${req.params.pageNumber}`);
 });
 
-app.get('/:slug-episode-:episode(\\d+)-subtitle-indonesia/?', (req, res) => {
-  const { slug, episode } = req.params;
+// RUTE REDIRECT DARI NEKOPOI LAMA (Regex)
+// Menangkap pola: /judul-anime-panjang-episode-02-subtitle-indonesia
+app.get(/^\/(.+)-episode-(\d+)-subtitle-indonesia\/?$/, (req, res) => {
+  // req.params[0] = slug (judul anime)
+  // req.params[1] = episode (angka)
+  
+  const slug = req.params[0]; 
+  const episodeRaw = req.params[1];
 
-  res.redirect(301, `/anime/${slug}/${episode}`);
+  // Ubah string "02" menjadi angka 2 (menghilangkan nol di depan)
+  const episodeNum = parseInt(episodeRaw, 10);
+
+  // Redirect Permanen (301) ke format baru
+  res.redirect(301, `/anime/${slug}/${episodeNum}`);
 });
+
 
 app.get('/safelink', (req, res) => {
   const base64Url = req.query.url;
