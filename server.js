@@ -1157,7 +1157,7 @@ app.get('/hentai-list', async (req, res) => {
       // 1. Definisikan query untuk 'latestSeries'
       const latestSeriesQuery = Anime.find({})
         .sort({ createdAt: -1 })
-        .limit(7) // Anda bisa sesuaikan jumlah ini
+        .limit(8) // Anda bisa sesuaikan jumlah ini
         .select('pageSlug imageUrl title info.Type info.Released info.Status')
         .lean();
    
@@ -1290,7 +1290,7 @@ app.get('/anime/:animeId/:episodeNum', async (req, res) => {
    Episode.findOne({ episodeSlug: episodeSlug }).lean(), 
    Anime.findOne({ "episodes.url": episodeSlug }).lean(),
    Anime.aggregate([{ $sample: { size: 7 } }]),
-      latestSeriesQuery
+   latestSeriesQuery
   ]);
 
   if (!episodeData) {
@@ -1300,6 +1300,15 @@ app.get('/anime/:animeId/:episodeNum', async (req, res) => {
     pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl, query: '', 
    });
   }
+
+  // --- TAMBAHAN: UPDATE VIEW COUNT ---
+  // Menambahkan +1 viewCount ke Anime Induk setiap kali episode ditonton
+  if (parentAnime) {
+      Anime.updateOne({ _id: parentAnime._id }, { $inc: { viewCount: 1 } })
+           .exec()
+           .catch(err => console.error(`Gagal update viewCount anime: ${err.message}`));
+  }
+  // ------------------------------------
 
   if (episodeData.streaming) episodeData.streaming = episodeData.streaming.map(s => ({ ...s, url: s.url ? Buffer.from(s.url).toString('base64') : null }));
   if (episodeData.downloads) episodeData.downloads = episodeData.downloads.map(q => ({ ...q, links: q.links.map(l => ({ ...l, url: l.url ? Buffer.from(l.url).toString('base64') : null })) }));
@@ -1337,7 +1346,7 @@ app.get('/anime/:animeId/:episodeNum', async (req, res) => {
    pageImage: seoImage, 
    pageUrl: SITE_URL + req.originalUrl, 
    parentAnime: parentAnime,
-      latestSeries: latestSeries
+   latestSeries: latestSeries
   });
 
  } catch (error) {
@@ -1346,6 +1355,7 @@ app.get('/anime/:animeId/:episodeNum', async (req, res) => {
    res.status(500).send('Gagal memuat video: ' + error.message);
  }
 });
+
 
 // RUTE DETAIL ANIME
 app.get('/anime/:slug', async (req, res) => {
