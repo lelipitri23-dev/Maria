@@ -1,5 +1,43 @@
 <%- include('partials/header', { /* data header */ }) %>
 
+ <% 
+  // --- LOGIKA JSON-LD SCHEMA ---
+  // 1. Ambil Sinopsis
+  const schemaDesc = (typeof parentAnime !== 'undefined' && parentAnime.synopsis) 
+      ? parentAnime.synopsis.replace(/[\r\n]+/g, " ").substring(0, 5000) 
+      : data.title;
+  
+
+  // 3. AMBIL VIEW COUNT (DARI DATABASE)
+  // Kita mengambil dari 'parentAnime.viewCount' karena itu yang di-update di server.js
+  const totalViews = (typeof parentAnime !== 'undefined' && parentAnime.viewCount) ? parentAnime.viewCount : 0;
+
+  // 4. Susun Objek JSON
+  const videoSchema = {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    "name": `${data.title} Subtitle Indonesia`,
+    "description": schemaDesc,
+    "uploadDate": new Date(data.createdAt || Date.now()).toISOString(),
+    "thumbnailUrl": 
+       pageImage 
+    ,
+    "contentUrl": pageUrl,
+    "embedUrl": pageUrl,
+    "interactionStatistic": {
+      "@type": "InteractionCounter",
+      "interactionType": { "@type": "WatchAction" },
+      "userInteractionCount": totalViews // <-- DATA DINAMIS DARI DB
+    }
+  };
+%>
+
+<script type="application/ld+json">
+  <%- JSON.stringify(videoSchema) %>
+</script>
+
+
+
 <% 
   // Filter stream agar tidak menampilkan 'bonus'
   const filteredStreams = data.streaming ? data.streaming.filter(stream => stream.name.toLowerCase() !== 'bonus') : [];
