@@ -19,6 +19,8 @@ const NodeCache = require('node-cache');
 // --- BARU: Impor Helper & Rute ---
 const { slugify, formatCompactNumber, encodeAnimeSlugs } = require('./utils/helpers');
 const apiV1Routes = require('./routes/api_v1');
+const { uploadVideoToLewdHost } = require('./utils/lewdUpload'); 
+
 // const pageRoutes = require('./routes/pageRoutes'); // (Jika Anda memindahkan rute halaman)
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -492,6 +494,55 @@ app.get('/admin/episodes', isAdmin, async (req, res) => {
     });
   } catch (error) { console.error("Admin Episode List Error:", error); res.status(500).send('Error loading admin episode list.'); }
 });
+
+// ==========================================
+// RUTE REMOTE UPLOAD LEWD.HOST (INTEGRASI)
+// ==========================================
+app.post('/admin/api/remote-upload-lewd', isAdmin, async (req, res) => {
+  // Set timeout 30 menit agar tidak putus saat upload file besar
+  req.setTimeout(30 * 60 * 1000); 
+
+  const { episodeSlug, videoUrl } = req.body;
+
+  // Validasi Input
+  if (!episodeSlug || !videoUrl) {
+    return res.status(400).json({ success: false, error: 'Slug Episode dan URL Video wajib diisi.' });
+  }
+
+  try {
+    // 1. Proses Upload ke Lewd.host
+    const newLewdUrl = await uploadVideoToLewdHost(videoUrl);
+
+    // 2. Buat Objek Stream Baru
+    const newStreamLink = { 
+        name: "LewdHost", 
+        url: newLewdUrl 
+    };
+
+    // 3. Update Database (Push ke array streaming)
+    const updatedEpisode = await Episode.findOneAndUpdate(
+      { episodeSlug: episodeSlug },
+      { $push: { streaming: newStreamLink } }, // Tambah ke list streaming
+      { new: true }
+    );
+
+    if (!updatedEpisode) {
+      return res.status(404).json({ success: false, error: 'Episode tidak ditemukan di database.' });
+    }
+
+    // 4. Sukses
+    res.json({ 
+        success: true, 
+        message: 'Berhasil diupload ke Lewd.host dan disimpan ke DB.',
+        newLink: newStreamLink 
+    });
+
+  } catch (error) {
+    console.error("Remote Upload Lewd Gagal:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 // Rute Remote Upload Dood
 app.post('/admin/api/remote-upload', isAdmin, delay, async (req, res) => {
