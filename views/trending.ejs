@@ -1,0 +1,99 @@
+<%- include('partials/header', { /* data header */ }) %>
+
+<main class="flex-1 w-full min-w-0">
+  <div class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
+    
+    <div class="flex items-center justify-between p-3 md:p-5 border-b border-[#33303f]">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500">
+            <i class="fas fa-fire"></i>
+        </div>
+        <h1 class="text-base md:text-lg font-bold text-[var(--text-main)] uppercase leading-tight">
+          Top Hentai Trending
+        </h1>
+      </div>
+      <span class="text-[10px] md:text-xs font-bold bg-primary/10 text-primary px-2 py-1 rounded-full border border-primary/20 whitespace-nowrap">
+        Top <%= totalCount %>
+      </span>
+    </div>
+
+    <div class="p-3 md:p-5">
+      <% if (!animes || animes.length === 0) { %>
+        <div class="flex flex-col items-center justify-center py-16 text-center">
+          <div class="w-20 h-20 bg-darker rounded-full flex items-center justify-center mb-4 border border-[#33303f]">
+            <i class="fas fa-chart-line text-3xl text-muted"></i>
+          </div>
+          <h3 class="text-lg font-bold text-[var(--text-main)] mb-1">Belum ada data</h3>
+          <p class="text-sm text-muted">Data trending belum tersedia.</p>
+        </div>
+      <% } else { %>
+        
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+          <% animes.forEach((anime, index) => { 
+             // Logika Warna Badge Ranking
+             let rankColor = "bg-gray-700"; // Default (4+)
+             let rankBorder = "border-gray-600";
+             if (index === 0) { rankColor = "bg-yellow-500"; rankBorder = "border-yellow-300"; } // Emas
+             else if (index === 1) { rankColor = "bg-gray-400"; rankBorder = "border-gray-200"; } // Perak
+             else if (index === 2) { rankColor = "bg-orange-700"; rankBorder = "border-orange-500"; } // Perunggu
+          %>
+            <article class="group relative bg-darker rounded-md overflow-hidden border border-[#33303f] hover:border-primary hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-lg">
+              <a href="/anime/<%= anime.pageSlug %>" title="<%= anime.title %>">
+                
+                <div class="relative aspect-[2/3] overflow-hidden bg-gray-800">
+                  <img src="<%= anime.imageUrl || '/images/default.jpg' %>" 
+                       class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 lazy-load opacity-0"
+                       data-src="<%= anime.imageUrl || '/images/default.jpg' %>"
+                       alt="<%= anime.title %>">
+                  
+                  <div class="absolute top-0 right-0 z-20">
+                      <div class="<%= rankColor %> text-white text-xs font-extrabold px-3 py-1 rounded-bl-lg shadow-md border-b border-l <%= rankBorder %>">
+                          #<%= index + 1 %>
+                      </div>
+                  </div>
+
+                  <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 backdrop-blur-[1px]">
+                    <div class="w-10 h-10 rounded-full bg-primary border-2 border-white text-white flex items-center justify-center transform scale-0 group-hover:scale-100 transition-transform duration-300">
+                      <i class="fas fa-play ml-1"></i>
+                    </div>
+                  </div>
+
+                  <span class="absolute bottom-0 left-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tr z-10 backdrop-blur-sm flex items-center gap-1">
+                    <i class="fas fa-eye text-[8px]"></i> <%= anime.viewCount || 0 %>
+                  </span>
+                  
+                  <span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">
+                    <%= anime.status || (anime.info ? anime.info.Status : '?') %>
+                  </span>
+                </div>
+
+                <div class="p-2 md:p-3 flex flex-col h-[80px] justify-between">
+                  <h2 class="text-xs sm:text-sm font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                    <%= anime.title %>
+                  </h2>
+                  
+                  <div class="flex justify-between items-end text-[10px] text-muted mt-1 border-t border-[#33303f] pt-1">
+                    <span>
+                      <% if (anime.type || (anime.info && anime.info.Type)) { %>
+                         <%= anime.type || anime.info.Type %>
+                      <% } else { %> TV <% } %>
+                    </span>
+                    <span>
+                      <% if (anime.released || (anime.info && anime.info.Released)) { %>
+                        <%= (anime.released || anime.info.Released).split(' ')[0] %>
+                      <% } else { %> ? <% } %>
+                    </span>
+                  </div>
+                </div>
+              </a>
+            </article>
+          <% }) %>
+        </div>
+
+      <% } %>
+    </div>
+  </div>
+</main>
+
+<%- include('partials/sidebar', { page: page }) %>
+<%- include('partials/footer', { page: page }) %>

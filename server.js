@@ -964,6 +964,32 @@ app.get('/home', async (req, res) => {
   }
 });
 
+// RUTE TRENDING / POPULER
+app.get('/trending', async (req, res) => {
+  try {
+    // Ambil 50 anime dengan viewCount terbanyak
+    const animes = await Anime.find({})
+      .sort({ viewCount: -1 }) // Urutkan dari yang terbesar (Descending)
+      .limit(20) // Batasi 50 item
+      .lean();
+
+    res.render('trending', {
+      animes: encodeAnimeSlugs(animes), // Pastikan slug aman
+      page: 'trending',
+      pageTitle: `NekoPoi Trending - ${siteName}`,
+      pageDescription: `Daftar hentai paling populer dan paling banyak ditonton di ${siteName}.`,
+      pageImage: `${SITE_URL}/images/default.jpg`,
+      pageUrl: `${SITE_URL}/trending`,
+      totalCount: animes.length
+    });
+
+  } catch (error) {
+    console.error("Trending Page Error:", error);
+    res.status(500).send('Terjadi kesalahan memuat halaman trending.');
+  }
+});
+
+
 app.get('/search', async (req, res) => {
   try {
     const searchQuery = req.query.q;
