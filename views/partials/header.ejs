@@ -2,7 +2,7 @@
 <html lang="id" class="scroll-smooth dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> 
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#e97991">
   <meta name="google-site-verification" content="temK8AAV3FjnmEOZXqRUDcWsxa2SBZmwUl2zzkIjo8I" />
 
@@ -30,7 +30,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
-    /* VAR WARNA DINAMIS */
     :root {
       --primary-color: #e97991;
       --primary-hover: #d15f76;
@@ -57,14 +56,13 @@
       background-color: var(--bg-body); 
       color: var(--text-main); 
       transition: background-color 0.3s, color 0.3s;
-      padding-bottom: 80px; /* Ruang untuk menu bawah */
+      padding-bottom: 80px;
     }
 
     @media (min-width: 1024px) {
         body { padding-bottom: 0; }
     }
 
-    /* Custom Scrollbar */
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg-darker); }
     ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
@@ -155,20 +153,30 @@
   </nav>
 
   <div id="search-modal" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-    <div class="bg-card border border-[#33303f] w-full max-w-md rounded-2xl p-6 shadow-2xl transform scale-95 transition-transform duration-300" id="search-modal-content">
-        <div class="flex justify-between items-center mb-6">
+    <div class="bg-card border border-[#33303f] w-full max-w-md rounded-2xl p-6 shadow-2xl transform scale-95 transition-transform duration-300 flex flex-col max-h-[80vh]" id="search-modal-content">
+        
+        <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-bold text-[var(--text-main)]">Pencarian</h3>
             <button id="close-search" class="text-muted hover:text-primary text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-darker transition-colors">
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <form action="/search" method="get" class="relative">
-            <input type="text" name="q" placeholder="Ketik judul anime..." 
+        
+        <form action="/search" method="get" class="relative mb-4 flex-shrink-0">
+            <input type="text" id="live-search-input" name="q" placeholder="Ketik judul anime..." 
                 class="w-full bg-darker border border-[#33303f] rounded-full py-3 px-5 pl-12 text-sm text-[var(--text-main)] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder-gray-500" autocomplete="off">
             <button type="submit" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-primary">
                 <i class="fas fa-search text-lg"></i>
             </button>
         </form>
+
+        <div id="live-search-results" class="flex-1 overflow-y-auto custom-scrollbar space-y-2 hidden">
+        </div>
+        
+        <div id="search-loading" class="hidden text-center py-4">
+            <i class="fas fa-spinner fa-spin text-primary text-xl"></i>
+        </div>
+
     </div>
   </div>
 
@@ -209,7 +217,6 @@
     <div class="wrapper flex flex-col lg:flex-row gap-0 md:gap-6 items-start">
       
       <script>
-        // --- THEME LOGIC ---
         const toggleBtns = document.querySelectorAll('#theme-toggle, #theme-toggle-mobile');
         const htmlElement = document.documentElement;
 
@@ -225,7 +232,6 @@
           });
         });
 
-        // --- SEARCH POPUP LOGIC ---
         const searchModal = document.getElementById('search-modal');
         const searchModalContent = document.getElementById('search-modal-content');
         const mobileSearchBtn = document.getElementById('mobile-search-btn');
@@ -234,31 +240,82 @@
 
         function toggleSearch() {
             if (searchModal.classList.contains('hidden')) {
-                // Buka Modal
                 searchModal.classList.remove('hidden');
-                // Animasi Masuk
                 requestAnimationFrame(() => {
                     searchModal.classList.remove('opacity-0');
                     searchModalContent.classList.remove('scale-95');
                     searchModalContent.classList.add('scale-100');
                 });
-                setTimeout(() => searchInput.focus(), 100); // Auto focus
+                setTimeout(() => searchInput.focus(), 100);
             } else {
-                // Tutup Modal
                 searchModal.classList.add('opacity-0');
                 searchModalContent.classList.remove('scale-100');
                 searchModalContent.classList.add('scale-95');
                 setTimeout(() => {
                     searchModal.classList.add('hidden');
-                }, 300); // Tunggu animasi selesai
+                }, 300);
             }
         }
 
         if(mobileSearchBtn) mobileSearchBtn.addEventListener('click', toggleSearch);
         if(closeSearchBtn) closeSearchBtn.addEventListener('click', toggleSearch);
         
-        // Tutup jika klik di luar box
         searchModal.addEventListener('click', (e) => {
             if(e.target === searchModal) toggleSearch();
         });
+
+        const liveInput = document.getElementById('live-search-input');
+        const liveResults = document.getElementById('live-search-results');
+        const searchLoading = document.getElementById('search-loading');
+        let searchTimeout;
+
+        if (liveInput) {
+            liveInput.addEventListener('input', function() {
+                const query = this.value.trim();
+                clearTimeout(searchTimeout);
+                
+                if (query.length < 2) {
+                    liveResults.innerHTML = '';
+                    liveResults.classList.add('hidden');
+                    return;
+                }
+
+                searchLoading.classList.remove('hidden');
+                liveResults.classList.add('hidden');
+
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                        const data = await response.json();
+
+                        searchLoading.classList.add('hidden');
+                        liveResults.innerHTML = '';
+
+                        if (data && data.length > 0) {
+                            liveResults.classList.remove('hidden');
+                            data.forEach(anime => {
+                                const item = document.createElement('a');
+                                item.href = `/anime/${anime.pageSlug}`;
+                                item.className = "flex items-center gap-3 p-2 hover:bg-darker rounded-lg transition-colors group border-b border-[#33303f] last:border-0";
+                                item.innerHTML = `
+                                    <img src="${anime.imageUrl}" class="w-10 h-14 object-cover rounded" alt="${anime.title}">
+                                    <div>
+                                        <h4 class="text-sm font-bold text-[var(--text-main)] group-hover:text-primary line-clamp-1">${anime.title}</h4>
+                                        <span class="text-[10px] text-muted">${anime.info?.Type || 'Anime'} • ${anime.info?.Status || '?'}</span>
+                                    </div>
+                                `;
+                                liveResults.appendChild(item);
+                            });
+                        } else {
+                            liveResults.classList.remove('hidden');
+                            liveResults.innerHTML = `<div class="text-center text-muted text-sm py-4">Tidak ditemukan "${query}"</div>`;
+                        }
+
+                    } catch (error) {
+                        console.error(error);
+                        searchLoading.classList.add('hidden');
+                    }
+                }, 500);
+            });
+        }
       </script>

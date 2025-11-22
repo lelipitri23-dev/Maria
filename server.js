@@ -1645,6 +1645,25 @@ app.get('/logout', (req, res) => {
 // --- API ROUTES ---
 // ===================================
 // Rute API untuk Lapor Error
+// API SEARCH (Untuk Live Search)
+app.get('/api/search', async (req, res) => {
+  try {
+    const searchQuery = req.query.q;
+    if (!searchQuery) return res.json([]);
+
+    const query = { title: new RegExp(searchQuery, 'i') };
+    const animes = await Anime.find(query)
+      .sort({ _id: -1 })
+      .limit(5) // Batasi 5 hasil agar cepat
+      .select('title pageSlug imageUrl info.Type info.Status') // Ambil field penting saja
+      .lean();
+
+    res.json(animes);
+  } catch (error) {
+    res.status(500).json([]);
+  }
+});
+
 app.post('/api/report-error',  isLoggedIn, async (req, res) => {
   try {
     const { pageUrl, message } = req.body;

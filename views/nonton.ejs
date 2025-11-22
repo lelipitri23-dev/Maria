@@ -160,7 +160,7 @@
         <div class="flex-1 min-w-0">
             
             <div class="mb-6">
-                <h2 class="text-lg font-bold text-[var(--text-main)] mb-2"><%= data.title %></h2>
+                <h2 class="text-lg font-bold text-[var(--text-main)] mb-2"><%= data.title %> Sub Indo</h2>
                 <p class="text-sm text-muted mb-1">
                     <strong>Genre:</strong> 
                     <% if (typeof parentAnime !== 'undefined' && parentAnime.genres) { %>
@@ -177,7 +177,7 @@
                          const isCurrent = (data.episodeSlug === ep.url);
                          let displayTitle = ep.title;
                          const match = ep.title.match(/Episode\s+(\d+)/i);
-                         if (match) displayTitle = 'Ep ' + parseInt(match[1]);
+                         if (match) displayTitle = 'Episode ' + parseInt(match[1]);
                     %>
                       <a href="/anime<%= ep.url %>" class="block <%= isCurrent ? 'bg-primary text-white border-primary' : 'bg-darker text-[var(--text-main)] border-[#33303f] hover:bg-primary hover:text-white hover:border-primary' %> border text-center py-1.5 px-1 text-[10px] font-bold rounded transition-colors truncate" title="<%= ep.title %>">
                          <%= displayTitle %>
