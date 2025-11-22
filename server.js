@@ -21,8 +21,6 @@ const { slugify, formatCompactNumber, encodeAnimeSlugs } = require('./utils/help
 const apiV1Routes = require('./routes/api_v1');
 const { uploadVideoToLewdHost } = require('./utils/lewdUpload'); 
 
-// const pageRoutes = require('./routes/pageRoutes'); // (Jika Anda memindahkan rute halaman)
-
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Import Models
