@@ -1449,6 +1449,22 @@ function handleOldPagination(req, res, newBasePath) {
   }
 }
 
+// RUTE REDIRECT PAGINATION TRENDING (301 Permanent)
+
+// RUTE REDIRECT CATEGORY -> ANIME (301 Permanent)
+// Mengarahkan /category/pandemic/ ke /anime/pandemic/
+app.get('/category/:slug', (req, res) => {
+  const slug = req.params.slug;
+  res.redirect(301, `/anime/${slug}`);
+});
+
+
+// Mengarahkan /trending/page/81 (atau angka lain) ke /trending
+app.get('/trending/page/:page', (req, res) => {
+  res.redirect(301, '/trending');
+});
+
+
 // Redirect untuk /anime-list/page/..
 app.get('/anime-list/page/:pageNumber(\\d+)/?', (req, res) => {
   handleOldPagination(req, res, '/hentai-list');
