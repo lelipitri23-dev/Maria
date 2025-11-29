@@ -185,10 +185,6 @@
                   <input type="text" id="info.Type" name="info.Type" placeholder="OVA / Series">
               </div>
             <div>
-                  <label for="info.Episode">Jumlah Episode:</label>
-                  <input type="text" id="info.Episode" name="info.Episode" placeholder="Contoh: 2">
-              </div>
-            <div>
                   <label for="info.Status">Status:</label>
                   <input type="text" id="info.Status" name="info.Status" placeholder="Ongoing / Ended">
             </div>
@@ -257,7 +253,6 @@
               // ==========================================================
               const infoAlternatifInput = document.getElementById('info.Alternatif');
               const infoTypeInput = document.getElementById('info.Type');
-              const infoEpisodeInput = document.getElementById('info.Episode');
               const infoStatusInput = document.getElementById('info.Status');
               const infoProduserInput = document.getElementById('info.Produser');
               const infoReleasedInput = document.getElementById('info.Released');
@@ -310,7 +305,7 @@
                   // ==========================================================
                   if (infoAlternatifInput) infoAlternatifInput.value = data.title_japanese || '';
                   if (infoTypeInput) infoTypeInput.value = data.type || '';
-                  if (infoEpisodeInput) infoEpisodeInput.value = data.episodes || '';
+                  //if (infoEpisodeInput) infoEpisodeInput.value = data.episodes || '';
                   if (infoReleasedInput) infoReleasedInput.value = data.aired?.prop?.from?.year || '';
 
                   // Gabungkan studio dan produser ke field 'Produser'

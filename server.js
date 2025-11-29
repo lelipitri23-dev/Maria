@@ -809,33 +809,21 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
       imageUrl = webPath;
       console.log(`File disimpan ke: ${localDiskPath}`);
     }
-
-    // ==========================================================
-    // --- PERUBAHAN UTAMA DI SINI ---
-    // Mengubah struktur objek 'info' agar sesuai dengan form baru
-    // ==========================================================
     const newAnimeData = {
       title: formData.title,
       pageSlug: formData.pageSlug,
-      // 'alternativeTitle' (level atas) dihapus, karena sekarang ada di dalam 'info'
       imageUrl: imageUrl,
       synopsis: formData.synopsis || '',
       info: {
         Alternatif: formData['info.Alternatif'] || '', // Kunci BARU
         Type: formData['info.Type'] || '',
-        Episode: formData['info.Episode'] || '', // Kunci BARU
         Status: formData['info.Status'] || 'Unknown',
         Produser: formData['info.Produser'] || '', // Kunci BARU
         Released: formData['info.Released'] || '',
-        // 'Studio' dan 'Producers' (kunci lama) telah dihapus
       },
       genres: formData.genres ? formData.genres.split(',').map(g => g.trim()).filter(Boolean) : [],
       episodes: [],
-      characters: []
     };
-    // ==========================================================
-    // --- AKHIR PERUBAHAN ---
-    // ==========================================================
 
     const createdAnime = await Anime.create(newAnimeData);
     console.log(`Anime baru ditambahkan: ${createdAnime.pageSlug}`);
