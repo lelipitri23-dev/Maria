@@ -302,7 +302,7 @@
                 grid.innerHTML = '';
                 
                 data.data.forEach(anime => {
-                    const title = anime.title_english || anime.title || 'No Title';
+                    const title = anime.title_title || anime.title || 'No Title';
                     const imageUrl = (anime.images?.jpg?.image_url) || '/images/default.jpg';
                     const status = anime.status || '?';
                     const searchUrl = `/search?q=${encodeURIComponent(title)}`;
