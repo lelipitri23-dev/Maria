@@ -1760,60 +1760,67 @@ app.post('/api/report-error',  isLoggedIn, async (req, res) => {
   }
 });
 
-app.use('/api/popular', checkApiReferer);
+
+// Middleware tetap digunakan
 app.use('/api/tahun-ini', checkApiReferer);
 app.use('/api/genre/uncensored', checkApiReferer);
 
-app.get('/api/popular', async (req, res) => {
-  try {
-    const range = req.query.range || 'weekly';
-    let dateFilter = {};
-    const now = new Date();
-
-    if (range === 'weekly') {
-      dateFilter = { updatedAt: { $gte: new Date(now.setDate(now.getDate() - 7)) } };
-    } else if (range === 'monthly') {
-      dateFilter = { updatedAt: { $gte: new Date(now.setMonth(now.getMonth() - 1)) } };
-    }
-
-    const popularAnime = await Anime.find(dateFilter)
-      .sort({ viewCount: -1 })
-      .limit(10)
-      .select('title pageSlug imageUrl genres')
-      .lean();
-    const encodedResults = encodeAnimeSlugs(popularAnime);
-    res.json(encodedResults);
-
-  } catch (error) {
-    console.error("API /api/popular Error:", error);
-    res.status(500).json({ error: 'Gagal mengambil data populer' });
-  }
-});
-
+// 1. API Tahun Ini (Dengan Cache)
 app.get('/api/tahun-ini', async (req, res) => {
   try {
+    const cacheKey = 'api_tahun_ini'; // Kunci unik untuk cache ini
+    const cachedData = appCache.get(cacheKey); // Cek apakah data ada di RAM
+
+    // JIKA ADA DI CACHE: Langsung kirim, stop proses di sini
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    // JIKA TIDAK ADA: Ambil dari Database
     const currentYear = new Date().getFullYear();
     const yearRegex = new RegExp(currentYear.toString()); 
+    
     const animes = await Anime.find({ 'info.Released': yearRegex }) 
       .sort({ createdAt: -1 }) 
       .limit(6) 
       .select('pageSlug imageUrl title genres') 
       .lean();
+
+    // Simpan ke Cache agar request berikutnya tidak perlu ke DB lagi
+    // (Durasi sesuai setting stdTTL di server.js, yaitu 1 jam)
+    appCache.set(cacheKey, animes);
+
     res.json(animes);
+
   } catch (error) {
     console.error('Error fetching API /api/tahun-ini:', error);
     res.status(500).json({ error: 'Gagal memuat data' });
   }
 });
 
+// 2. API Genre Uncensored (Dengan Cache)
 app.get('/api/genre/uncensored', async (req, res) => {
   try {
+    const cacheKey = 'api_genre_uncensored'; // Kunci unik
+    const cachedData = appCache.get(cacheKey);
+
+    // JIKA ADA DI CACHE
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    // JIKA TIDAK ADA
     const animes = await Anime.find({ 'genres': /uncensored/i }) 
       .sort({ createdAt: -1 }) 
       .limit(6) 
       .select('pageSlug imageUrl title genres') 
       .lean();
+
+    // Simpan ke Cache
+    appCache.set(cacheKey, animes);
+
     res.json(animes);
+
   } catch (error) {
     console.error('Error fetching API /api/genre/uncensored:', error);
     res.status(500).json({ error: 'Gagal memuat data' });
