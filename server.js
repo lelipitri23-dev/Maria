@@ -30,6 +30,7 @@ const Bookmark = require('./models/Bookmark');
 const User = require('./models/User');
 const Comment = require('./models/Comment'); // <-- Pastikan Model Comment diimpor
 const Report = require('./models/Report');
+const { uploadToR2 } = require('./utils/r2Upload');
 const { type } = require('os');
 
 const app = express();
@@ -798,27 +799,49 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
 
     let imageUrl = formData.imageUrl || '/images/default.jpg'; 
 
+    // --- LOGIKA UPLOAD ---
     if (file) {
       console.log(`Menerima upload file: ${file.originalname}`);
       const extension = path.extname(file.originalname); 
-      const newFilename = `${formData.pageSlug}${extension}`; 
-      const localDiskPath = path.join(UPLOAD_DISK_PATH, newFilename);
-      const webPath = `/${UPLOAD_WEB_PATH_NAME}/${newFilename}`;
-      if (!fs.existsSync(UPLOAD_DISK_PATH)) fs.mkdirSync(UPLOAD_DISK_PATH, { recursive: true });
-      fs.writeFileSync(localDiskPath, file.buffer);
-      imageUrl = webPath;
-      console.log(`File disimpan ke: ${localDiskPath}`);
+      const newFilename = `${formData.pageSlug}${extension}`; // Nama file sesuai slug
+      
+      try {
+        console.log(`🚀 Mengupload ke R2: ${newFilename}...`);
+        
+        // 1. Coba Upload ke R2
+        const r2Url = await uploadToR2(file.buffer, newFilename, file.mimetype);
+        
+        // Jika sukses, pakai URL R2
+        imageUrl = r2Url; 
+        console.log(`✅ Upload R2 Berhasil: ${imageUrl}`);
+
+      } catch (uploadError) {
+        console.error("❌ Gagal upload ke R2:", uploadError);
+        
+        // 2. FALLBACK KE LOKAL (Hanya jika R2 gagal)
+        console.log("⚠️ Mencoba menyimpan ke penyimpanan lokal sebagai fallback...");
+        const localDiskPath = path.join(UPLOAD_DISK_PATH, newFilename);
+        const webPath = `/${UPLOAD_WEB_PATH_NAME}/${newFilename}`;
+        
+        if (!fs.existsSync(UPLOAD_DISK_PATH)) fs.mkdirSync(UPLOAD_DISK_PATH, { recursive: true });
+        fs.writeFileSync(localDiskPath, file.buffer);
+        
+        // Pakai path lokal
+        imageUrl = webPath; 
+        console.log(`File disimpan lokal ke: ${localDiskPath}`);
+      }
     }
+
     const newAnimeData = {
       title: formData.title,
       pageSlug: formData.pageSlug,
-      imageUrl: imageUrl,
+      imageUrl: imageUrl, // Sekarang ini aman (bisa R2, bisa Lokal, atau Default)
       synopsis: formData.synopsis || '',
       info: {
-        Alternatif: formData['info.Alternatif'] || '', // Kunci BARU
+        Alternatif: formData['info.Alternatif'] || '', 
         Type: formData['info.Type'] || '',
         Status: formData['info.Status'] || 'Unknown',
-        Produser: formData['info.Produser'] || '', // Kunci BARU
+        Produser: formData['info.Produser'] || '', 
         Released: formData['info.Released'] || '',
       },
       genres: formData.genres ? formData.genres.split(',').map(g => g.trim()).filter(Boolean) : [],

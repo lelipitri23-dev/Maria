@@ -6,3 +6,5 @@ node_modules/
 
 # Abaikan file all_slugs_cv.txt
 migration.js
+images.js
+upload.js
