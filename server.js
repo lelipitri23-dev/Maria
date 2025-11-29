@@ -1518,12 +1518,21 @@ app.get('/category/:slug', (req, res) => {
   res.redirect(301, `/anime/${slug}`);
 });
 
+app.get('/hentai/:slug', (req, res) => {
+  const slug = req.params.slug;
+  res.redirect(301, `/anime/${slug}`);
+});
+
 
 // Mengarahkan /trending/page/81 (atau angka lain) ke /trending
 app.get('/trending/page/:page', (req, res) => {
   res.redirect(301, '/trending');
 });
 
+// Redirect untuk /anime-list/page/..
+app.get('/anime-list/', (req, res) => {
+  handleOldPagination(req, res, '/hentai-list');
+});
 
 // Redirect untuk /anime-list/page/..
 app.get('/anime-list/page/:pageNumber(\\d+)/?', (req, res) => {
