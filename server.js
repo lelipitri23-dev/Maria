@@ -1986,6 +1986,8 @@ app.get('/sitemap-static.xml', (req, res) => {
     { url: '/hentai-list', changefreq: 'daily', priority: '0.9' },
     { url: '/genre-list', changefreq: 'weekly', priority: '0.7' },
     { url: '/tahun-list', changefreq: 'yearly', priority: '0.7' },
+    { url: '/login', changefreq: 'weekly', priority: '0.7' },
+    { url: '/register', changefreq: 'weekly', priority: '0.7' },
     { url: '/jadwal', changefreq: 'daily', priority: '0.8' }
   ];
   staticPages.forEach(page => {
@@ -2004,7 +2006,7 @@ app.get('/sitemap-anime.xml', async (req, res) => {
     res.header('Content-Type', 'application/xml');
     res.write(xmlHeader); 
 
-    const cursor = Anime.find({}, 'pageSlug createdAt').lean().cursor();
+    const cursor = Anime.find({}, 'pageSlug updatedAt').lean().cursor();
 
     for (let anime = await cursor.next(); anime != null; anime = await cursor.next()) {
       if (anime.pageSlug) {
@@ -2030,7 +2032,7 @@ app.get('/sitemap-episode.xml', async (req, res) => {
     res.header('Content-Type', 'application/xml');
     res.write(xmlHeader);
 
-    const cursor = Episode.find({}, 'episodeSlug createdAt').lean().cursor();
+    const cursor = Episode.find({}, 'episodeSlug updatedAt').lean().cursor();
     
     for (let episode = await cursor.next(); episode != null; episode = await cursor.next()) {
       if (episode.episodeSlug) { 
