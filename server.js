@@ -704,29 +704,67 @@ app.post('/admin/episode/:slug(*)/edit', isAdmin, async (req, res) => {
   try {
     const episodeSlug = "/" + decodeURIComponent(req.params.slug);
     const formData = req.body;
+
+    // 1. Siapkan data update
     const dataToUpdate = {
       title: formData.title,
       thumbnailUrl: formData.thumbnailUrl,
-      episodeDate: formData.episodeDate 
+      // FORCE UPDATE WAKTU
+      createdAt: new Date(), // Ubah waktu buat jadi SEKARANG
+      updatedAt: new Date()  // Ubah waktu update jadi SEKARANG
     };
+
+    // 2. Proses Streaming Links
     if (formData.streams && Array.isArray(formData.streams)) {
-      dataToUpdate.streaming = formData.streams.filter(stream => stream && stream.name && stream.url)
+      dataToUpdate.streaming = formData.streams
+        .filter(stream => stream && stream.name && stream.url)
         .map(stream => ({ name: stream.name.trim(), url: stream.url.trim() }));
-    } else { dataToUpdate.streaming = []; }
+    } else {
+      dataToUpdate.streaming = [];
+    }
+
+    // 3. Proses Download Links
     if (formData.downloads && Array.isArray(formData.downloads)) {
-      dataToUpdate.downloads = formData.downloads.filter(qG => qG && qG.quality)
-        .map(qG => ({ quality: qG.quality.trim(), links: (qG.links && Array.isArray(qG.links)) ? qG.links.filter(l => l && l.host && l.url).map(l => ({ host: l.host.trim(), url: l.url.trim() })) : [] }))
+      dataToUpdate.downloads = formData.downloads
+        .filter(qG => qG && qG.quality)
+        .map(qG => ({
+          quality: qG.quality.trim(),
+          links: (qG.links && Array.isArray(qG.links)) 
+            ? qG.links.filter(l => l && l.host && l.url).map(l => ({ host: l.host.trim(), url: l.url.trim() })) 
+            : []
+        }))
         .filter(qG => qG.links.length > 0);
-    } else { dataToUpdate.downloads = []; }
-    Object.keys(dataToUpdate).forEach(key => (dataToUpdate[key] === undefined || dataToUpdate[key] === '') && delete dataToUpdate[key]);
+    } else {
+      dataToUpdate.downloads = [];
+    }
 
-    const updatedEpisode = await Episode.findOneAndUpdate({ episodeSlug: episodeSlug }, { $set: dataToUpdate }, { new: true, runValidators: true });
+    // 4. Bersihkan data kosong (kecuali createdAt/updatedAt)
+    Object.keys(dataToUpdate).forEach(key => {
+      if (key === 'createdAt' || key === 'updatedAt') return; // Jangan hapus tanggal
+      if (dataToUpdate[key] === undefined || dataToUpdate[key] === '') delete dataToUpdate[key];
+    });
 
-    if (!updatedEpisode) return res.status(404).send('Episode not found for update.'); 
+    // 5. EKSEKUSI UPDATE
+    // PENTING: Tambahkan { timestamps: false }
+    const updatedEpisode = await Episode.findOneAndUpdate(
+      { episodeSlug: episodeSlug },
+      { $set: dataToUpdate }, 
+      { 
+        new: true, 
+        runValidators: true,
+        timestamps: false // <--- INI KUNCINYA. Matikan timestamps otomatis agar createdAt bisa ditimpa manual.
+      }
+    );
 
-    console.log(`Successfully updated episode: ${episodeSlug}`);
+    if (!updatedEpisode) return res.status(404).send('Episode not found for update.');
+
+    console.log(`Episode bumped to top: ${episodeSlug}`);
     res.redirect('/admin/episodes');
-  } catch (error) { console.error(`Admin Update Episode POST Error (${req.params.slug}):`, error); res.status(500).send(`Error updating episode: ${error.message}`); }
+
+  } catch (error) {
+    console.error(`Admin Update Episode POST Error (${req.params.slug}):`, error);
+    res.status(500).send(`Error updating episode: ${error.message}`);
+  }
 });
 
 // Rute Hapus Episode
@@ -964,17 +1002,19 @@ app.get('/', (req, res) => {
 app.get('/home', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = ITEMS_PER_PAGE;
+    const limit = ITEMS_PER_PAGE; // Pastikan variabel ini sudah didefinisikan di atas (misal const ITEMS_PER_PAGE = 20;)
     const skip = (page - 1) * limit;
 
+    // Query untuk Anime Series Terbaru (Tetap berdasarkan CreatedAt tidak masalah, atau mau diubah ke UpdatedAt juga boleh)
     const latestSeriesQuery = Anime.find({})
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1 }) 
       .limit(10)
       .select('pageSlug imageUrl title info.Type info.Released info.Status')
       .lean();
     
+    // --- PERUBAHAN UTAMA DI SINI ---
     const episodesQuery = Episode.find({})
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 }) // Ganti 'createdAt' jadi 'updatedAt'
       .skip(skip)
       .limit(20)
       .lean();
@@ -994,14 +1034,19 @@ app.get('/home', async (req, res) => {
       if (ep.duration) {
         duration = ep.duration.replace('PT', '').replace('H', ':').replace('M', ':').replace('S', '');
       }
+      
+      // Opsional: Gunakan updatedAt untuk tahun jika ingin menampilkan tahun update
+      // Tapi biasanya tahun rilis (createdAt) lebih relevan untuk ditampilkan di UI
+      const displayDate = ep.updatedAt || ep.createdAt; 
+
       return {
         watchUrl: `/anime${ep.episodeSlug}`,
         title: ep.title,
-        imageUrl: ep.animeImageUrl || '/images/default.jpg',
+        imageUrl: ep.thumbnailUrl || ep.animeImageUrl || '/images/default.jpg', // Prioritaskan thumbnail episode
         duration: duration,
-        quality: '720p',
-        year: new Date(ep.createdAt).getFullYear().toString(),
-        createdAt: ep.createdAt
+        quality: '720p', // Bisa dibuat dinamis jika ada datanya
+        year: new Date(displayDate).getFullYear().toString(),
+        createdAt: displayDate // Kirim data tanggal update ke view
       };
     });
 
