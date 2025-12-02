@@ -700,6 +700,7 @@ app.get('/admin/episode/:slug(*)/edit', isAdmin, async (req, res) => {
 });
 
 // Rute Edit Episode (POST)
+// Rute Edit Episode (POST)
 app.post('/admin/episode/:slug(*)/edit', isAdmin, async (req, res) => {
   try {
     const episodeSlug = "/" + decodeURIComponent(req.params.slug);
@@ -1002,19 +1003,17 @@ app.get('/', (req, res) => {
 app.get('/home', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = ITEMS_PER_PAGE; // Pastikan variabel ini sudah didefinisikan di atas (misal const ITEMS_PER_PAGE = 20;)
+    const limit = ITEMS_PER_PAGE;
     const skip = (page - 1) * limit;
 
-    // Query untuk Anime Series Terbaru (Tetap berdasarkan CreatedAt tidak masalah, atau mau diubah ke UpdatedAt juga boleh)
     const latestSeriesQuery = Anime.find({})
-      .sort({ createdAt: -1 }) 
+      .sort({ createdAt: -1 })
       .limit(10)
       .select('pageSlug imageUrl title info.Type info.Released info.Status')
       .lean();
     
-    // --- PERUBAHAN UTAMA DI SINI ---
     const episodesQuery = Episode.find({})
-      .sort({ updatedAt: -1 }) // Ganti 'createdAt' jadi 'updatedAt'
+      .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(20)
       .lean();
@@ -1034,17 +1033,13 @@ app.get('/home', async (req, res) => {
       if (ep.duration) {
         duration = ep.duration.replace('PT', '').replace('H', ':').replace('M', ':').replace('S', '');
       }
-      
-      // Opsional: Gunakan updatedAt untuk tahun jika ingin menampilkan tahun update
-      // Tapi biasanya tahun rilis (createdAt) lebih relevan untuk ditampilkan di UI
-      const displayDate = ep.updatedAt || ep.createdAt; 
-
+      const displayDate = ep.updatedAt || ep.createdAt;
       return {
         watchUrl: `/anime${ep.episodeSlug}`,
         title: ep.title,
-        imageUrl: ep.thumbnailUrl || ep.animeImageUrl || '/images/default.jpg', // Prioritaskan thumbnail episode
+        imageUrl: ep.animeImageUrl || '/images/default.jpg',
         duration: duration,
-        quality: '720p', // Bisa dibuat dinamis jika ada datanya
+        quality: '720p',
         year: new Date(displayDate).getFullYear().toString(),
         createdAt: displayDate // Kirim data tanggal update ke view
       };
