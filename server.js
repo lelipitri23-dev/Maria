@@ -827,6 +827,9 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
     const formData = req.body;
     const file = req.file;
 
+    // Debugging: Cek apa yang dikirim form
+    console.log("Form Data:", formData);
+
     if (!formData.title || !formData.pageSlug) {
       return res.status(400).send('Judul dan Slug wajib diisi.');
     }
@@ -842,30 +845,27 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
     if (file) {
       console.log(`Menerima upload file: ${file.originalname}`);
       const extension = path.extname(file.originalname); 
-      const newFilename = `${formData.pageSlug}${extension}`; // Nama file sesuai slug
+      const newFilename = `${formData.pageSlug}${extension}`; 
       
       try {
         console.log(`🚀 Mengupload ke R2: ${newFilename}...`);
-        
-        // 1. Coba Upload ke R2
         const r2Url = await uploadToR2(file.buffer, newFilename, file.mimetype);
-        
-        // Jika sukses, pakai URL R2
         imageUrl = r2Url; 
         console.log(`✅ Upload R2 Berhasil: ${imageUrl}`);
-
       } catch (uploadError) {
         console.error("❌ Gagal upload ke R2:", uploadError);
-        
-        // 2. FALLBACK KE LOKAL (Hanya jika R2 gagal)
         console.log("⚠️ Mencoba menyimpan ke penyimpanan lokal sebagai fallback...");
+        
+        // Pastikan folder ada sebelum menulis
+        if (!fs.existsSync(UPLOAD_DISK_PATH)) {
+            fs.mkdirSync(UPLOAD_DISK_PATH, { recursive: true });
+        }
+
         const localDiskPath = path.join(UPLOAD_DISK_PATH, newFilename);
+        // Gunakan nama file saja untuk URL web, bukan path lengkap disk
         const webPath = `/${UPLOAD_WEB_PATH_NAME}/${newFilename}`;
         
-        if (!fs.existsSync(UPLOAD_DISK_PATH)) fs.mkdirSync(UPLOAD_DISK_PATH, { recursive: true });
         fs.writeFileSync(localDiskPath, file.buffer);
-        
-        // Pakai path lokal
         imageUrl = webPath; 
         console.log(`File disimpan lokal ke: ${localDiskPath}`);
       }
@@ -874,14 +874,17 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
     const newAnimeData = {
       title: formData.title,
       pageSlug: formData.pageSlug,
-      imageUrl: imageUrl, // Sekarang ini aman (bisa R2, bisa Lokal, atau Default)
+      imageUrl: imageUrl,
       synopsis: formData.synopsis || '',
+      // --- PERBAIKAN STRUKTUR INFO ---
       info: {
         Alternatif: formData['info.Alternatif'] || '', 
         Type: formData['info.Type'] || '',
         Status: formData['info.Status'] || 'Unknown',
         Produser: formData['info.Produser'] || '', 
         Released: formData['info.Released'] || '',
+        // Tambahkan field Episode agar sesuai Schema (walaupun kosong)
+        Episode: '', 
       },
       genres: formData.genres ? formData.genres.split(',').map(g => g.trim()).filter(Boolean) : [],
       episodes: [],
@@ -893,12 +896,15 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
 
   } catch (error) {
     console.error("Admin Add Anime POST Error:", error);
+    
     if (error instanceof multer.MulterError) {
       return res.status(400).send(`Error Multer: ${error.message}`);
     } else if (error.message.includes('Hanya file')) {
       return res.status(400).send(error.message);
     }
-    res.status(500).send('Gagal menambahkan anime baru.');
+    
+    // --- PERBAIKAN DISINI: Tampilkan pesan error asli ke layar ---
+    res.status(500).send(`Gagal menambahkan anime baru. Error Detail: ${error.message}`);
   }
 });
 
