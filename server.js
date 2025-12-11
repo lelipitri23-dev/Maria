@@ -827,9 +827,6 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
     const formData = req.body;
     const file = req.file;
 
-    // Debugging: Cek apa yang dikirim form
-    console.log("Form Data:", formData);
-
     if (!formData.title || !formData.pageSlug) {
       return res.status(400).send('Judul dan Slug wajib diisi.');
     }
@@ -841,7 +838,7 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
 
     let imageUrl = formData.imageUrl || '/images/default.jpg'; 
 
-    // --- LOGIKA UPLOAD ---
+    // --- LOGIKA UPLOAD (Disesuaikan untuk Vercel) ---
     if (file) {
       console.log(`Menerima upload file: ${file.originalname}`);
       const extension = path.extname(file.originalname); 
@@ -849,25 +846,19 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
       
       try {
         console.log(`🚀 Mengupload ke R2: ${newFilename}...`);
+        
+        // Pastikan fungsi uploadToR2 sudah benar dan Env Vars sudah di-set di Vercel
         const r2Url = await uploadToR2(file.buffer, newFilename, file.mimetype);
+        
         imageUrl = r2Url; 
         console.log(`✅ Upload R2 Berhasil: ${imageUrl}`);
+
       } catch (uploadError) {
         console.error("❌ Gagal upload ke R2:", uploadError);
-        console.log("⚠️ Mencoba menyimpan ke penyimpanan lokal sebagai fallback...");
         
-        // Pastikan folder ada sebelum menulis
-        if (!fs.existsSync(UPLOAD_DISK_PATH)) {
-            fs.mkdirSync(UPLOAD_DISK_PATH, { recursive: true });
-        }
-
-        const localDiskPath = path.join(UPLOAD_DISK_PATH, newFilename);
-        // Gunakan nama file saja untuk URL web, bukan path lengkap disk
-        const webPath = `/${UPLOAD_WEB_PATH_NAME}/${newFilename}`;
-        
-        fs.writeFileSync(localDiskPath, file.buffer);
-        imageUrl = webPath; 
-        console.log(`File disimpan lokal ke: ${localDiskPath}`);
+        // PENTING: Jangan coba simpan ke lokal jika di Vercel!
+        // Langsung lempar error agar kita tahu kenapa R2 gagal.
+        throw new Error(`Upload Cloudflare R2 Gagal: ${uploadError.message}. Pastikan Environment Variables R2 sudah diset di Vercel.`);
       }
     }
 
@@ -876,15 +867,13 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
       pageSlug: formData.pageSlug,
       imageUrl: imageUrl,
       synopsis: formData.synopsis || '',
-      // --- PERBAIKAN STRUKTUR INFO ---
       info: {
         Alternatif: formData['info.Alternatif'] || '', 
         Type: formData['info.Type'] || '',
         Status: formData['info.Status'] || 'Unknown',
         Produser: formData['info.Produser'] || '', 
         Released: formData['info.Released'] || '',
-        // Tambahkan field Episode agar sesuai Schema (walaupun kosong)
-        Episode: '', 
+        Episode: '', // Sesuai schema
       },
       genres: formData.genres ? formData.genres.split(',').map(g => g.trim()).filter(Boolean) : [],
       episodes: [],
@@ -896,15 +885,8 @@ app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, r
 
   } catch (error) {
     console.error("Admin Add Anime POST Error:", error);
-    
-    if (error instanceof multer.MulterError) {
-      return res.status(400).send(`Error Multer: ${error.message}`);
-    } else if (error.message.includes('Hanya file')) {
-      return res.status(400).send(error.message);
-    }
-    
-    // --- PERBAIKAN DISINI: Tampilkan pesan error asli ke layar ---
-    res.status(500).send(`Gagal menambahkan anime baru. Error Detail: ${error.message}`);
+    // Tampilkan error ke layar
+    res.status(500).send(`GAGAL: ${error.message}`);
   }
 });
 
