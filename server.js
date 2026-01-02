@@ -501,8 +501,8 @@ app.get('/home', async (req, res) => {
     ]);
 
     res.render('home', {
-      page: 'home', pageTitle: `Home - ${siteName}`,
-      pageDescription: 'Nonton Anime Hentai Sub Indo',
+      page: 'home', pageTitle: `${siteName} - AV Hentai Subtitle Indonesia`,
+      pageDescription: 'NekoPoi Nonton anime hentai subtitle indonesia. Nikmati sensasi menonton anime hentai, ecchi, uncensored, sub indo kualitas video HD 1080p 720p 480p.',
       pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl,
       episodes: episodes.map(ep => ({
         watchUrl: `/anime${ep.episodeSlug}`, title: ep.title, imageUrl: ep.animeImageUrl || '/images/default.jpg',
@@ -684,6 +684,8 @@ app.get('/tahun/:year', async (req, res) => {
 app.get('/anime/:animeId/:episodeNum', async (req, res) => {
   try {
     const episodeSlug = `/${req.params.animeId}/${req.params.episodeNum}`;
+    
+    // Ambil semua data yang diperlukan secara paralel
     const [episodeData, parentAnime, recommendations, latestSeries] = await Promise.all([
       Episode.findOne({ episodeSlug }).lean(),
       Anime.findOne({ "episodes.url": episodeSlug }).lean(),
@@ -691,33 +693,67 @@ app.get('/anime/:animeId/:episodeNum', async (req, res) => {
       Anime.find({}).sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
-    if (!episodeData) return res.status(404).render('404', { page: '404', pageTitle: '404', pageDescription: '', pageImage: '', pageUrl: '', query: '' });
-
-    if (parentAnime) {
-      // FIX: timestamps: false agar tanggal tidak berubah saat ditonton
-      Anime.updateOne({ _id: parentAnime._id }, { $inc: { viewCount: 1 } }, { timestamps: false }).exec().catch(() => {});
+    // Jika episode tidak ditemukan, tampilkan 404
+    if (!episodeData) {
+      return res.status(404).render('404', { 
+        page: '404', pageTitle: '404 - Tidak Ditemukan', pageDescription: '', 
+        pageImage: '', pageUrl: '', query: '' 
+      });
     }
 
-    if (episodeData.streaming) episodeData.streaming = episodeData.streaming.map(s => ({ ...s, url: s.url ? Buffer.from(s.url).toString('base64') : null }));
-    if (episodeData.downloads) episodeData.downloads = episodeData.downloads.map(q => ({ ...q, links: q.links.map(l => ({ ...l, url: l.url ? Buffer.from(l.url).toString('base64') : null })) }));
-
+    // Update View Count Anime Induk (Tanpa mengubah timestamp update)
+    if (parentAnime) {
+      Anime.updateOne(
+        { _id: parentAnime._id }, 
+        { $inc: { viewCount: 1 } }, 
+        { timestamps: false }
+      ).exec().catch(() => {});
+    }
+    if (episodeData.streaming) {
+      episodeData.streaming = episodeData.streaming.map(s => ({ 
+        ...s, 
+        url: s.url ? Buffer.from(s.url).toString('base64') : null 
+      }));
+    }
+    if (episodeData.downloads) {
+      episodeData.downloads = episodeData.downloads.map(q => ({ 
+        ...q, 
+        links: q.links.map(l => ({ ...l, url: l.url ? Buffer.from(l.url).toString('base64') : null })) 
+      }));
+    }
     const nav = { prev: null, next: null, all: null };
     if (parentAnime) {
       nav.all = `/anime/${parentAnime.pageSlug ? encodeURIComponent(parentAnime.pageSlug) : ''}`;
       const idx = parentAnime.episodes.findIndex(ep => ep.url === episodeSlug);
+      
       if (idx > -1) {
-        if (idx > 0) nav.prev = { ...parentAnime.episodes[idx - 1], url: `/anime${parentAnime.episodes[idx - 1].url}` };
-        if (idx < parentAnime.episodes.length - 1) nav.next = { ...parentAnime.episodes[idx + 1], url: `/anime${parentAnime.episodes[idx + 1].url}` };
+        if (idx > 0) {
+          nav.prev = { ...parentAnime.episodes[idx - 1], url: `/anime${parentAnime.episodes[idx - 1].url}` };
+        }
+        if (idx < parentAnime.episodes.length - 1) {
+          nav.next = { ...parentAnime.episodes[idx + 1], url: `/anime${parentAnime.episodes[idx + 1].url}` };
+        }
       }
     }
-
     res.render('nonton', {
-      data: episodeData, nav, recommendations: encodeAnimeSlugs(recommendations), page: 'nonton',
-      pageTitle: `${episodeData.title}`, pageDescription: parentAnime?.synopsis || '', pageImage: parentAnime?.imageUrl || '',
-      pageUrl: SITE_URL + req.originalUrl, parentAnime, latestSeries
+      data: episodeData, 
+      nav: nav, 
+      recommendations: encodeAnimeSlugs(recommendations), 
+      page: 'nonton',
+      pageTitle: `${episodeData.title} Subtitle Indonesia`, 
+      pageDescription: parentAnime?.synopsis || '', 
+      pageImage: parentAnime?.imageUrl || '',
+      pageUrl: SITE_URL + req.originalUrl, 
+      parentAnime: parentAnime, 
+      latestSeries: latestSeries
     });
-  } catch (error) { res.status(500).send(error.message); }
+
+  } catch (error) { 
+    console.error("Nonton Error:", error);
+    res.status(500).send(error.message); 
+  }
 });
+
 
 app.get('/anime/:slug', async (req, res) => {
   try {
@@ -729,20 +765,24 @@ app.get('/anime/:slug', async (req, res) => {
     ]);
 
     if (!animeData) return res.status(404).render('404', { page: '404', pageTitle: '404', pageDescription: '', pageImage: '', pageUrl: '', query: '' });
-
-    // FIX: timestamps: false agar tanggal tidak berubah
     Anime.updateOne({ pageSlug }, { $inc: { viewCount: 1 } }, { timestamps: false }).exec().catch(() => {});
 
     const [encodedMainData] = encodeAnimeSlugs([animeData]);
     encodedMainData.episodes = animeData.episodes?.map(ep => ({ ...ep, url: `/anime${ep.url}` })) || [];
 
     res.render('anime', {
-      data: encodedMainData, recommendations: encodeAnimeSlugs(recommendations), page: 'anime',
-      pageTitle: animeData.title, pageDescription: animeData.synopsis, pageImage: encodedMainData.imageUrl,
-      pageUrl: SITE_URL + req.originalUrl, latestSeries
+      data: encodedMainData, 
+      recommendations: encodeAnimeSlugs(recommendations), 
+      page: 'anime',
+      pageTitle: `${animeData.title} Subtitle Indonesia`, 
+      pageDescription: animeData.synopsis, 
+      pageImage: encodedMainData.imageUrl,
+      pageUrl: SITE_URL + req.originalUrl, 
+      latestSeries
     });
   } catch (error) { res.status(500).send(error.message); }
 });
+
 
 // --- LEGACY REDIRECTS ---
 app.get('/category/:slug', (req, res) => res.redirect(301, `/anime/${req.params.slug}`));
