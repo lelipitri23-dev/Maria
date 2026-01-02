@@ -1,116 +1,78 @@
-// ===================================
-// --- IMPORTS & INITIALIZATION ---
-// ===================================
-require('dotenv').config(); // Load .env file FIRST
-const siteName = process.env.SITE_NAME || 'RajaHentai'; // Define siteName globally
+require('dotenv').config();
+const siteName = process.env.SITE_NAME || 'RajaHentai';
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
-const fs = require('fs'); // Diperlukan untuk menyimpan file unggahan
-const multer = require('multer'); // Import multer
+const fs = require('fs');
+const multer = require('multer');
 const mongoose = require('mongoose');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
-
-// --- PERBAIKAN PERFORMA 1: Impor Middleware ---
 const compression = require('compression');
 const NodeCache = require('node-cache');
-
-// --- BARU: Impor Helper & Rute ---
 const { slugify, formatCompactNumber, encodeAnimeSlugs } = require('./utils/helpers');
 const apiV1Routes = require('./routes/api_v1');
-const { uploadVideoToLewdHost } = require('./utils/lewdUpload'); 
+const { uploadVideoToLewdHost } = require('./utils/lewdUpload');
+const { uploadToR2 } = require('./utils/r2Upload');
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Import Models
+// Models
 const Anime = require('./models/Anime');
 const Episode = require('./models/Episode');
 const Bookmark = require('./models/Bookmark');
 const User = require('./models/User');
-const Comment = require('./models/Comment'); // <-- Pastikan Model Comment diimpor
+const Comment = require('./models/Comment');
 const Report = require('./models/Report');
-const { uploadToR2 } = require('./utils/r2Upload');
-const { type } = require('os');
 
 const app = express();
-
-// --- PERBAIKAN PERFORMA 2: Inisialisasi Cache ---
-// Cache untuk 1 jam (3600 detik) untuk query yang berat
 const appCache = new NodeCache({ stdTTL: 3600 });
-
-
-// --- DIHAPUS ---
-// Fungsi slugify, formatCompactNumber, dan encodeAnimeSlugs
-// telah dipindahkan ke utils/helpers.js
-// ------------------------------
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const storage = multer.memoryStorage();
-// Filter untuk memastikan hanya gambar yang di-upload
 const fileFilter = (req, file, cb) => {
   if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'image/webp' || file.mimetype === 'application/json') {
-    cb(null, true); // Terima file
+    cb(null, true);
   } else {
-    cb(new Error('Hanya file .jpg, .png, .webp, atau .json yang diizinkan!'), false); // Tolak file
+    cb(new Error('Format file tidak diizinkan!'), false);
   }
 };
 
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // Batas 5MB
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 
-// ===================================
-// --- GLOBAL CONFIGURATION ---
-// ===================================
 const PORT = process.env.PORT || 3000;
 const ITEMS_PER_PAGE = 20;
 const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
-const DB_URI = process.env.DB_URI; 
-
-// --- PERBAIKAN RENDER: Konfigurasi Persistent Disk ---
+const DB_URI = process.env.DB_URI;
 const UPLOAD_WEB_PATH_NAME = 'images';
 const UPLOAD_DISK_PATH = process.env.RENDER_DISK_PATH || path.join(__dirname, 'public', UPLOAD_WEB_PATH_NAME);
 
-// Pastikan direktori upload ada saat development lokal
 if (!process.env.RENDER_DISK_PATH) {
   if (!fs.existsSync(UPLOAD_DISK_PATH)) {
-    console.log(`Membuat direktori upload lokal di: ${UPLOAD_DISK_PATH}`);
     fs.mkdirSync(UPLOAD_DISK_PATH, { recursive: true });
   }
 }
-// --- AKHIR PERBAIKAN RENDER ---
-
-
-// ===================================
-// --- MIDDLEWARE ---
-// ===================================
 
 async function checkApiReferer(req, res, next) {
   try {
     const referer = req.headers.referer;
     const allowedHostname = new URL(SITE_URL).hostname;
-
-    if (!referer) {
-      return res.status(403).json({ error: 'Akses Ditolak (Direct Access)' });
-    }
-
+    if (!referer) return res.status(403).json({ error: 'Akses Ditolak' });
     const refererHostname = new URL(referer).hostname;
-    
     if (refererHostname === allowedHostname) {
       next();
     } else {
-      return res.status(403).json({ error: 'Akses Ditolak (Hotlinking)' });
+      return res.status(403).json({ error: 'Akses Ditolak' });
     }
-    
   } catch (error) {
-    return res.status(403).json({ error: 'Akses Ditolak (Invalid Referer)' });
+    return res.status(403).json({ error: 'Akses Ditolak' });
   }
 }
 
 app.use(compression());
-app.use(express.static(path.join(__dirname, 'public'))); 
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(`/${UPLOAD_WEB_PATH_NAME}`, express.static(UPLOAD_DISK_PATH));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -118,29 +80,26 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.set('trust proxy', 1);
 
-// --- BARU: Jadikan variabel global untuk EJS ---
 app.locals.slugify = slugify;
 app.locals.formatCompactNumber = formatCompactNumber;
 app.locals.siteName = siteName;
 app.locals.SITE_URL = SITE_URL;
 
-// Session Configuration
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'fallback_secret_please_change',
+  secret: process.env.SESSION_SECRET || 'secret_key',
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: DB_URI,
     collectionName: 'sessions',
-    ttl: 14 * 24 * 60 * 60 // 14 hari
+    ttl: 14 * 24 * 60 * 60
   }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production', 
-    maxAge: 1000 * 60 * 60 * 24 * 14 // 14 hari
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 1000 * 60 * 60 * 24 * 14
   }
 }));
 
-// Middleware untuk User
 app.use((req, res, next) => {
   res.locals.user = req.session.userId ? {
     id: req.session.userId,
@@ -149,25 +108,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware Cek Login
 const isLoggedIn = (req, res, next) => {
   if (req.session && req.session.userId) {
-    return next(); 
+    return next();
   } else {
-    res.status(401).json({ error: 'Anda harus login untuk melakukan aksi ini' });
+    res.status(401).json({ error: 'Anda harus login' });
   }
 };
 
-// ===================================
-// --- HELPER FUNCTIONS ---
-// ===================================
-
-// --- DIHAPUS ---
-// Fungsi encodeAnimeSlugs telah dipindahkan ke utils/helpers.js
-
-// ===================================
-// --- ADMIN AUTH MIDDLEWARE ---
-// ===================================
 const isAdmin = (req, res, next) => {
   if (req.session && req.session.isAdmin) {
     return next();
@@ -176,27 +124,19 @@ const isAdmin = (req, res, next) => {
   }
 };
 
-// ===================================
 // --- ADMIN ROUTES ---
-// ===================================
 
 app.get('/admin/login', (req, res) => {
-  if (req.session && req.session.isAdmin) {
-    return res.redirect('/admin');
-  }
+  if (req.session && req.session.isAdmin) return res.redirect('/admin');
   res.render('admin/login', {
     page: 'admin-login', pageTitle: `Admin Login - ${siteName}`, error: req.query.error,
-    pageDescription: '', pageImage: '', pageUrl: '', query: '', 
-    // siteName dan SITE_URL sekarang global via app.locals
+    pageDescription: '', pageImage: '', pageUrl: '', query: ''
   });
 });
 
 app.post('/admin/login', async (req, res) => {
   const { username, password } = req.body;
-  const adminUser = process.env.ADMIN_USERNAME;
-  const adminPass = process.env.ADMIN_PASSWORD;
-
-  if (username === adminUser && password === adminPass) {
+  if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
     req.session.isAdmin = true;
     res.redirect('/admin');
   } else {
@@ -205,15 +145,13 @@ app.post('/admin/login', async (req, res) => {
 });
 
 app.get('/admin/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) console.error("Error destroying session:", err);
+  req.session.destroy(() => {
     res.clearCookie('connect.sid');
     res.redirect('/admin/login');
   });
 });
 
-// --- PERBAIKAN 2: Ambil semua data count ---
-app.get('/admin', isAdmin, async (req, res) => { 
+app.get('/admin', isAdmin, async (req, res) => {
   try {
     const [totalAnime, totalEpisodes, totalUsers, totalComments] = await Promise.all([
       Anime.countDocuments(),
@@ -221,57 +159,30 @@ app.get('/admin', isAdmin, async (req, res) => {
       User.countDocuments(),
       Comment.countDocuments()
     ]);
-
     res.render('admin/dashboard', {
-      page: 'admin-dashboard',
-      pageTitle: `Admin Dashboard - ${siteName}`,
-      pageDescription: 'Admin dashboard',
-      pageImage: '',
-      pageUrl: '',
-      query: '',
-      totalAnime: totalAnime,
-      totalEpisodes: totalEpisodes,
-      totalUsers: totalUsers,
-      totalComments: totalComments
+      page: 'admin-dashboard', pageTitle: `Admin Dashboard - ${siteName}`,
+      pageDescription: '', pageImage: '', pageUrl: '', query: '',
+      totalAnime, totalEpisodes, totalUsers, totalComments
     });
-
   } catch (error) {
-    console.error("Error loading admin dashboard stats:", error);
-    res.status(500).send('Gagal memuat statistik dashboard.');
+    res.status(500).send('Gagal memuat statistik.');
   }
 });
 
-
-// 1. Halaman untuk menampilkan UI Backup/Restore
 app.get('/admin/backup', isAdmin, (req, res) => {
-  try {
-    res.render('admin/backup', {
-      page: 'admin-backup',
-      pageTitle: `Backup & Restore - ${siteName}`,
-      pageDescription: 'Halaman admin untuk backup dan restore database.',
-      pageImage: '',
-      pageUrl: '',
-      query: '',
-    });
-  } catch (error) {
-    console.error("Error rendering backup page:", error);
-    res.status(500).send('Error memuat halaman.');
-  }
+  res.render('admin/backup', {
+    page: 'admin-backup', pageTitle: `Backup - ${siteName}`,
+    pageDescription: '', pageImage: '', pageUrl: '', query: ''
+  });
 });
 
-
-// 2. Rute untuk MENGEKSPOR (DOWNLOAD) data
 app.get('/admin/backup/export', isAdmin, async (req, res) => {
   try {
-    console.log("Memulai proses ekspor database (streaming)...");
     const fileName = `backup_${siteName.toLowerCase()}_${new Date().toISOString().split('T')[0]}.json`;
-
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
 
     res.write(`{ "exportedAt": "${new Date().toISOString()}", "collections": {`);
-
-    // Fungsi helper untuk stream koleksi
     const streamCollection = async (model, collectionName) => {
       res.write(`"${collectionName}": [`);
       const cursor = model.find().lean().cursor();
@@ -284,180 +195,98 @@ app.get('/admin/backup/export', isAdmin, async (req, res) => {
       res.write(`]`);
     };
 
-    // Streaming data
-    await streamCollection(Anime, 'animes');
-    res.write(',');
-    await streamCollection(Episode, 'episodes');
-    res.write(',');
-    await streamCollection(Bookmark, 'bookmarks');
-    res.write(',');
-    await streamCollection(User, 'users');
-    res.write(',');
-    await streamCollection(Comment, 'comments'); // <-- Tambahkan Ekspor Komentar
-    
-    res.write(`} }`); // Tutup collections dan JSON utama
-    res.end();
-    console.log(`Ekspor streaming berhasil: ${fileName}`);
+    await streamCollection(Anime, 'animes'); res.write(',');
+    await streamCollection(Episode, 'episodes'); res.write(',');
+    await streamCollection(Bookmark, 'bookmarks'); res.write(',');
+    await streamCollection(User, 'users'); res.write(',');
+    await streamCollection(Comment, 'comments');
 
+    res.write(`} }`);
+    res.end();
   } catch (error) {
-    console.error("Gagal melakukan ekspor database:", error);
-    res.status(500).send('Gagal mengekspor data: ' + error.message);
+    res.status(500).send('Gagal mengekspor data.');
   }
 });
 
-
-// 3. Rute untuk MENGIMPOR (RESTORE) data
 app.post('/admin/backup/import', isAdmin, upload.single('backupFile'), async (req, res) => {
   try {
-    console.log("Memulai proses impor database...");
-    if (!req.file) return res.status(400).send('Tidak ada file backup yang diupload.');
-    if (req.file.mimetype !== 'application/json') return res.status(400).send('File harus berformat .json');
-
-    const jsonString = req.file.buffer.toString('utf8');
-    const backupData = JSON.parse(jsonString);
-
-    if (!backupData.collections || !backupData.collections.animes || !backupData.collections.episodes) {
-      return res.status(400).send('Format file backup tidak valid.');
-    }
-
+    if (!req.file || req.file.mimetype !== 'application/json') return res.status(400).send('File harus .json');
+    const backupData = JSON.parse(req.file.buffer.toString('utf8'));
     const { animes, episodes, bookmarks, users, comments } = backupData.collections;
 
-    console.log("PERINGATAN: Menghapus semua data lama...");
     await Promise.all([
-      Anime.deleteMany({}),
-      Episode.deleteMany({}),
-      Bookmark.deleteMany({}),
-      User.deleteMany({}), 
-      Comment.deleteMany({}) // <-- Tambahkan Hapus Komentar
+      Anime.deleteMany({}), Episode.deleteMany({}), Bookmark.deleteMany({}),
+      User.deleteMany({}), Comment.deleteMany({})
     ]);
-    console.log("Data lama berhasil dihapus.");
 
-    console.log(`Memasukkan data baru...`);
     await Promise.all([
-      Anime.insertMany(animes),
-      Episode.insertMany(episodes),
+      Anime.insertMany(animes), Episode.insertMany(episodes),
       (bookmarks && bookmarks.length > 0) ? Bookmark.insertMany(bookmarks) : Promise.resolve(),
       (users && users.length > 0) ? User.insertMany(users) : Promise.resolve(),
-      (comments && comments.length > 0) ? Comment.insertMany(comments) : Promise.resolve() // <-- Tambahkan Impor Komentar
+      (comments && comments.length > 0) ? Comment.insertMany(comments) : Promise.resolve()
     ]);
 
-    console.log("PROSES IMPOR DATABASE BERHASIL.");
-    res.send(`
-      <style>body { background-color: #222; color: #eee; font-family: sans-serif; padding: 20px; }</style>
-      <h2>Impor Berhasil!</h2>
-      <p>Database Anda telah berhasil dipulihkan.</p>
-      <ul>
-        <li>${animes ? animes.length : 0} data Anime diimpor.</li>
-        <li>${episodes ? episodes.length : 0} data Episode diimpor.</li>
-        <li>${bookmarks ? bookmarks.length : 0} data Bookmark diimpor.</li>
-        <li>${users ? users.length : 0} data User diimpor.</li>
-        <li>${comments ? comments.length : 0} data Komentar diimpor.</li>
-      </ul>
-      <a href="/admin" style="color: #87CEEB;">« Kembali ke Dasbor</a>
-    `);
-
+    res.send('Impor Berhasil! <a href="/admin">Kembali</a>');
   } catch (error) {
-    console.error("Gagal melakukan impor database:", error);
-    res.status(500).send('Gagal mengimpor data: ' + error.message);
+    res.status(500).send('Gagal impor: ' + error.message);
   }
 });
 
-// --- Admin Anime List ---
 app.get('/admin/anime', isAdmin, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = 30;
     const skipVal = (page - 1) * limit;
     const searchQuery = req.query.search || '';
-    const query = {};
-    if (searchQuery) {
-      const regex = new RegExp(searchQuery, 'i');
-      query.$or = [ { title: regex }, { pageSlug: regex } ];
-    }
+    const query = searchQuery ? { $or: [{ title: new RegExp(searchQuery, 'i') }, { pageSlug: new RegExp(searchQuery, 'i') }] } : {};
+    
     const [animes, totalCount] = await Promise.all([
       Anime.find(query).sort({ updatedAt: -1 }).skip(skipVal).limit(limit).lean(),
       Anime.countDocuments(query)
     ]);
-    const totalPages = Math.ceil(totalCount / limit);
-    const baseUrl = searchQuery ? `/admin/anime?search=${encodeURIComponent(searchQuery)}` : '/admin/anime';
+    
     res.render('admin/anime-list', {
-      animes: animes,
-      page: 'admin-anime-list',
-      pageTitle: `Admin - Anime List (Hal ${page})`,
-      currentPage: page,
-      totalPages: totalPages,
-      baseUrl: baseUrl,
-      searchQuery: searchQuery,
-      pageDescription: '', pageImage: '', pageUrl: '', query: '', 
+      animes, page: 'admin-anime-list', pageTitle: `Admin Anime List`,
+      currentPage: page, totalPages: Math.ceil(totalCount / limit),
+      baseUrl: searchQuery ? `/admin/anime?search=${encodeURIComponent(searchQuery)}` : '/admin/anime',
+      searchQuery, pageDescription: '', pageImage: '', pageUrl: '', query: ''
     });
   } catch (error) {
-    console.error("Admin Anime List Error:", error);
-    res.status(500).send('Error loading admin anime list.');
+    res.status(500).send('Error loading anime list.');
   }
 });
 
-// --- Rute Admin Anime Edit ---
 app.get('/admin/anime/:slug/edit', isAdmin, async (req, res) => {
   try {
-    const pageSlug = decodeURIComponent(req.params.slug);
-    const anime = await Anime.findOne({ pageSlug: pageSlug }).lean();
+    const anime = await Anime.findOne({ pageSlug: decodeURIComponent(req.params.slug) }).lean();
     if (!anime) return res.status(404).send('Anime not found.');
     res.render('admin/edit-anime', {
-      anime: anime, page: 'admin-edit-anime', pageTitle: `Edit Anime: ${anime.title} - ${siteName}`,
-      pageDescription: '', pageImage: '', pageUrl: '', query: '', 
+      anime, page: 'admin-edit-anime', pageTitle: `Edit Anime`,
+      pageDescription: '', pageImage: '', pageUrl: '', query: ''
     });
-  } catch (error) { console.error(`Admin Edit Anime GET Error (${req.params.slug}):`, error); res.status(500).send('Error loading anime edit form.'); }
+  } catch (error) { res.status(500).send('Error loading form.'); }
 });
 
-// Rute Hapus Anime
 app.post('/admin/anime/:slug/delete', isAdmin, async (req, res) => {
   try {
     const pageSlug = decodeURIComponent(req.params.slug);
-    console.log(`Mencoba menghapus anime: ${pageSlug}`);
+    const anime = await Anime.findOne({ pageSlug }).lean();
+    if (!anime) return res.status(404).send('Not found');
 
-    const animeToDelete = await Anime.findOne({ pageSlug: pageSlug }).lean();
-    if (!animeToDelete) {
-      console.warn(` > Peringatan: Anime ${pageSlug} tidak ditemukan.`);
-      return res.status(404).send('Anime tidak ditemukan');
+    await Episode.deleteMany({ animeSlug: pageSlug });
+    await Anime.deleteOne({ pageSlug });
+    
+    if (anime.episodes) {
+      const epIds = anime.episodes.map(e => e._id);
+      await Comment.deleteMany({ episode: { $in: epIds } });
     }
-
-    const deleteEpisodesResult = await Episode.deleteMany({ animeSlug: pageSlug });
-    console.log(` > Menghapus ${deleteEpisodesResult.deletedCount} episode dari koleksi Episode.`);
-
-    const deleteAnimeResult = await Anime.deleteOne({ pageSlug: pageSlug });
-    console.log(` > Menghapus ${deleteAnimeResult.deletedCount} anime dari koleksi Anime.`);
-
-    // Hapus juga komentar yang terkait dengan episode anime ini
-    const episodeIds = animeToDelete.episodes.map(ep => ep._id); // Asumsi episode punya _id di array
-    if (episodeIds && episodeIds.length > 0) {
-      const deleteCommentsResult = await Comment.deleteMany({ episode: { $in: episodeIds } });
-      console.log(` > Menghapus ${deleteCommentsResult.deletedCount} komentar terkait.`);
-    }
-
-    if (animeToDelete.imageUrl && animeToDelete.imageUrl.startsWith('/images/')) {
-      try {
-        const imagePath = path.join(UPLOAD_DISK_PATH, path.basename(animeToDelete.imageUrl));
-        if (fs.existsSync(imagePath)) {
-          fs.unlinkSync(imagePath);
-          console.log(` > Berhasil menghapus file gambar: ${imagePath}`);
-        }
-      } catch (imgErr) {
-        console.warn(` > Gagal menghapus file gambar ${animeToDelete.imageUrl}: ${imgErr.message}`);
-      }
-    }
-
+    
     res.redirect('/admin/anime');
-
-  } catch (error) {
-    console.error(`Admin Delete Anime POST Error (${req.params.slug}):`, error);
-    res.status(500).send(`Error menghapus anime: ${error.message}`);
-  }
+  } catch (error) { res.status(500).send(error.message); }
 });
 
-// Rute Update Anime
 app.post('/admin/anime/:slug/edit', isAdmin, async (req, res) => {
   try {
-    const pageSlug = decodeURIComponent(req.params.slug);
     const updateData = req.body;
     const dataToUpdate = {
       title: updateData.title, alternativeTitle: updateData.alternativeTitle,
@@ -468,14 +297,11 @@ app.post('/admin/anime/:slug/edit', isAdmin, async (req, res) => {
       genres: updateData.genres ? updateData.genres.split(',').map(g => g.trim()).filter(Boolean) : [],
     };
     Object.keys(dataToUpdate).forEach(key => (dataToUpdate[key] === undefined || dataToUpdate[key] === '') && delete dataToUpdate[key]);
-    const updatedAnime = await Anime.findOneAndUpdate({ pageSlug: pageSlug }, { $set: dataToUpdate }, { new: true });
-    if (!updatedAnime) return res.status(404).send('Anime not found for update.');
-    console.log(`Successfully updated anime: ${pageSlug}`);
+    await Anime.findOneAndUpdate({ pageSlug: decodeURIComponent(req.params.slug) }, { $set: dataToUpdate }, { new: true });
     res.redirect('/admin/anime');
-  } catch (error) { console.error(`Admin Update Anime POST Error (${req.params.slug}):`, error); res.status(500).send('Error updating anime.'); }
+  } catch (error) { res.status(500).send('Error updating.'); }
 });
 
-// --- Rute Admin Episode List ---
 app.get('/admin/episodes', isAdmin, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -485,1641 +311,656 @@ app.get('/admin/episodes', isAdmin, async (req, res) => {
       Episode.find().sort({ updatedAt: -1 }).skip(skipVal).limit(limit).lean(),
       Episode.countDocuments()
     ]);
-    const totalPages = Math.ceil(totalCount / limit);
     res.render('admin/episode-list', {
-      episodes: episodes, page: 'admin-episode-list', pageTitle: `Admin - Episode List (Halaman ${page}) - ${siteName}`,
-      currentPage: page, totalPages: totalPages, baseUrl: '/admin/episodes',
-      pageDescription: '', pageImage: '', pageUrl: '', query: '', 
+      episodes, page: 'admin-episode-list', pageTitle: `Admin Episodes`,
+      currentPage: page, totalPages: Math.ceil(totalCount / limit), baseUrl: '/admin/episodes',
+      pageDescription: '', pageImage: '', pageUrl: '', query: ''
     });
-  } catch (error) { console.error("Admin Episode List Error:", error); res.status(500).send('Error loading admin episode list.'); }
+  } catch (error) { res.status(500).send('Error loading list.'); }
 });
 
-// ==========================================
-// RUTE REMOTE UPLOAD LEWD.HOST (INTEGRASI)
-// ==========================================
 app.post('/admin/api/remote-upload-lewd', isAdmin, async (req, res) => {
-  // Set timeout 30 menit agar tidak putus saat upload file besar
-  req.setTimeout(30 * 60 * 1000); 
-
+  req.setTimeout(30 * 60 * 1000);
   const { episodeSlug, videoUrl } = req.body;
-
-  // Validasi Input
-  if (!episodeSlug || !videoUrl) {
-    return res.status(400).json({ success: false, error: 'Slug Episode dan URL Video wajib diisi.' });
-  }
-
+  if (!episodeSlug || !videoUrl) return res.status(400).json({ success: false, error: 'Data kurang' });
   try {
-    // 1. Proses Upload ke Lewd.host
     const newLewdUrl = await uploadVideoToLewdHost(videoUrl);
-
-    // 2. Buat Objek Stream Baru
-    const newStreamLink = { 
-        name: "LewdHost", 
-        url: newLewdUrl 
-    };
-
-    // 3. Update Database (Push ke array streaming)
-    const updatedEpisode = await Episode.findOneAndUpdate(
-      { episodeSlug: episodeSlug },
-      { $push: { streaming: newStreamLink } }, // Tambah ke list streaming
-      { new: true }
-    );
-
-    if (!updatedEpisode) {
-      return res.status(404).json({ success: false, error: 'Episode tidak ditemukan di database.' });
-    }
-
-    // 4. Sukses
-    res.json({ 
-        success: true, 
-        message: 'Berhasil diupload ke Lewd.host dan disimpan ke DB.',
-        newLink: newStreamLink 
-    });
-
-  } catch (error) {
-    console.error("Remote Upload Lewd Gagal:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
+    const newStreamLink = { name: "LewdHost", url: newLewdUrl };
+    await Episode.findOneAndUpdate({ episodeSlug }, { $push: { streaming: newStreamLink } }, { new: true });
+    res.json({ success: true, newLink: newStreamLink });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-
-// Rute Remote Upload Dood
 app.post('/admin/api/remote-upload', isAdmin, delay, async (req, res) => {
   const { episodeSlug, videoUrl } = req.body;
   const DOOD_API_KEY = process.env.DOOD_API_KEY;
-
-  if (!episodeSlug || !videoUrl) {
-    return res.status(400).json({ success: false, error: 'Slug episode dan URL video diperlukan.' });
-  }
-  if (!DOOD_API_KEY) {
-    return res.status(500).json({ success: false, error: 'DOOD_API_KEY tidak diatur di server.' });
-  }
+  if (!episodeSlug || !videoUrl || !DOOD_API_KEY) return res.status(400).json({ success: false, error: 'Data kurang' });
 
   try {
-    const doodApiUrl = `https://doodapi.co/api/upload/url?key=${DOOD_API_KEY}&url=${encodeURIComponent(videoUrl)}`;
-    const doodResponse = await axios.get(doodApiUrl);
-
-    if (doodResponse.data.status !== 200 || !doodResponse.data.result) {
-      throw new Error(`DoodAPI Error: ${doodResponse.data.msg || 'Gagal memulai upload'}`);
-    }
-
-    const fileCode = doodResponse.data.result.filecode;
-    if (!fileCode) {
-      throw new Error('DoodAPI mengembalikan respons sukses tetapi filecode tidak ditemukan.');
-    }
-
-    const newEmbedUrl = `https://dsvplay.com/e/${fileCode}`;
-    const newDownloadUrl = `https://dsvplay.com/d/${fileCode}`;
-    console.log(`[DoodUpload] Berhasil! URL Embed: ${newEmbedUrl}`);
-
-    const newStreamLink = { name: "Mirror", url: newEmbedUrl };
-    const newDownloadLink = { host: "DoodStream", url: newDownloadUrl };
-    const newDownloadQualityGroup = { quality: "480p", links: [newDownloadLink] };
-
-    const updatedEpisode = await Episode.findOneAndUpdate(
-      { episodeSlug: episodeSlug },
-      {
-        $push: {
-          streaming: newStreamLink,
-          downloads: newDownloadQualityGroup
-        }
-      },
+    const doodRes = await axios.get(`https://doodapi.co/api/upload/url?key=${DOOD_API_KEY}&url=${encodeURIComponent(videoUrl)}`);
+    if (doodRes.data.status !== 200 || !doodRes.data.result) throw new Error('DoodAPI Error');
+    
+    const fileCode = doodRes.data.result.filecode;
+    const newStreamLink = { name: "Mirror", url: `https://dsvplay.com/e/${fileCode}` };
+    const newDownloadLink = { host: "DoodStream", url: `https://dsvplay.com/d/${fileCode}` };
+    
+    await Episode.findOneAndUpdate(
+      { episodeSlug },
+      { $push: { streaming: newStreamLink, downloads: { quality: "480p", links: [newDownloadLink] } } },
       { new: true }
     );
-
-    if (!updatedEpisode) {
-      return res.status(404).json({ success: false, error: 'Episode tidak ditemukan di DB.' });
-    }
     res.json({ success: true, newLink: newStreamLink });
-
-  } catch (error) {
-    console.error(`[DoodUpload] Gagal: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
-  }
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-
-// Rute Batch Upload (Dinonaktifkan dari HTTP)
-app.post('/admin/api/batch-remote-upload-start', isAdmin, async (req, res) => {
-  console.error('[BatchUpload] PERINGATAN: Upaya menjalankan batch upload melalui HTTP terdeteksi.');
-  console.error('[BatchUpload] Proses ini terlalu lama dan akan gagal. Harap pindahkan ke Cron Job di Render.');
-  
-  res.status(503).json({ 
-    success: false, 
-    error: 'Fungsi ini telah dinonaktifkan dari HTTP API untuk mencegah timeout server.' + 
-           'Harap jalankan proses ini sebagai "Cron Job" terjadwal di dashboard Render Anda.'
-  });
-});
-
-
-// Rute Clear Mirrors
 app.post('/admin/api/clear-mirrors-start', isAdmin, async (req, res) => {
   try {
-    console.log('[BatchDelete] Memulai proses penghapusan mirror...');
-    const mirrorStreamNames = ["Mirror", "Viplay", "EarnVids"];
-    const mirrorDownloadQualities = ["Mirror", "Viplay", "EarnVids", "480p", "720p"]; 
-
-    const result = await Episode.updateMany(
-      {}, 
-      {
-        $pull: {
-          streaming: { name: { $in: mirrorStreamNames } },
-          downloads: { quality: { $in: mirrorDownloadQualities } }
-        }
+    const result = await Episode.updateMany({}, {
+      $pull: {
+        streaming: { name: { $in: ["Mirror", "Viplay", "EarnVids"] } },
+        downloads: { quality: { $in: ["Mirror", "Viplay", "EarnVids", "480p", "720p"] } }
       }
-    );
-    console.log(`[BatchDelete] Selesai. Dokumen yang dimodifikasi: ${result.modifiedCount}`);
+    });
     res.json({ success: true, modifiedCount: result.modifiedCount });
-
-  } catch (error) {
-    console.error(`[BatchDelete] Error Kritis: ${error.message}`);
-    res.status(500).json({ error: error.message });
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Rute Halaman Batch Upload
-app.get('/admin/batch-upload', isAdmin, (req, res) => {
-  res.render('admin/batch-upload', {
-    page: 'admin-batch-upload',
-    pageTitle: `Batch Remote Upload - ${siteName}`,
-    pageDescription: '', pageImage: '', pageUrl: '', query: '', 
-  });
-});
+app.get('/admin/batch-upload', isAdmin, (req, res) => res.render('admin/batch-upload', { page: 'admin', pageTitle: 'Batch Upload', pageDescription: '', pageImage: '', pageUrl: '', query: '' }));
+app.get('/admin/clear-mirrors', isAdmin, (req, res) => res.render('admin/clear-mirrors', { page: 'admin', pageTitle: 'Clear Mirrors', pageDescription: '', pageImage: '', pageUrl: '', query: '' }));
 
-// Rute Halaman Clear Mirrors
-app.get('/admin/clear-mirrors', isAdmin, (req, res) => {
-  res.render('admin/clear-mirrors', {
-    page: 'admin-clear-mirrors',
-    pageTitle: `Hapus Batch Mirror - ${siteName}`,
-    pageDescription: '', pageImage: '', pageUrl: '', query: '', 
-  });
-});
-
-// Rute Admin Halaman Laporan Error
 app.get('/admin/reports', isAdmin, async (req, res) => {
   try {
-    const reports = await Report.find()
-      .populate('user', 'username') // Tampilkan username pelapor jika ada
-      .sort({ createdAt: -1 })
-      .lean();
-
+    const reports = await Report.find().populate('user', 'username').sort({ createdAt: -1 }).lean();
     res.render('admin/reports', {
-      page: 'admin-reports',
-      pageTitle: `Laporan Error - ${siteName}`,
-      pageDescription: 'Daftar laporan error dari user.',
-      reports: reports,
-      pageImage: '', pageUrl: '', query: '', 
+      reports, page: 'admin-reports', pageTitle: 'Laporan Error',
+      pageDescription: '', pageImage: '', pageUrl: '', query: ''
     });
-  } catch (error) {
-    console.error("Admin Reports Page Error:", error);
-    res.status(500).send('Gagal memuat laporan.');
-  }
+  } catch (error) { res.status(500).send('Gagal memuat laporan.'); }
 });
 
-// Rute Hapus Laporan
 app.post('/admin/report/delete/:id', isAdmin, async (req, res) => {
-  try {
-    await Report.findByIdAndDelete(req.params.id);
-    res.redirect('/admin/reports');
-  } catch (error) {
-    res.status(500).send('Gagal menghapus laporan.');
-  }
+  try { await Report.findByIdAndDelete(req.params.id); res.redirect('/admin/reports'); }
+  catch (error) { res.status(500).send('Gagal.'); }
 });
 
-// Rute Edit Episode (GET)
 app.get('/admin/episode/:slug(*)/edit', isAdmin, async (req, res) => {
   try {
-    const episodeSlug = "/" + decodeURIComponent(req.params.slug);
-    const episode = await Episode.findOne({ episodeSlug: episodeSlug }).lean();
+    const episode = await Episode.findOne({ episodeSlug: "/" + decodeURIComponent(req.params.slug) }).lean();
     if (!episode) return res.status(404).send('Episode not found.');
     res.render('admin/edit-episode', {
-      episode: episode, page: 'admin-edit-episode', pageTitle: `Edit Episode: ${episode.title || episode.episodeSlug} - ${siteName}`,
-      pageDescription: '', pageImage: '', pageUrl: '', query: '', 
+      episode, page: 'admin-edit-episode', pageTitle: `Edit Episode`,
+      pageDescription: '', pageImage: '', pageUrl: '', query: ''
     });
-  } catch (error) { console.error(`Admin Edit Episode GET Error (${req.params.slug}):`, error); res.status(500).send('Error loading episode edit form.'); }
+  } catch (error) { res.status(500).send('Error loading form.'); }
 });
 
-// Rute Edit Episode (POST)
-// Rute Edit Episode (POST)
 app.post('/admin/episode/:slug(*)/edit', isAdmin, async (req, res) => {
   try {
     const episodeSlug = "/" + decodeURIComponent(req.params.slug);
     const formData = req.body;
-
-    // 1. Siapkan data update
     const dataToUpdate = {
-      title: formData.title,
-      thumbnailUrl: formData.thumbnailUrl,
-      // FORCE UPDATE WAKTU
-      createdAt: new Date(), // Ubah waktu buat jadi SEKARANG
-      updatedAt: new Date()  // Ubah waktu update jadi SEKARANG
+      title: formData.title, thumbnailUrl: formData.thumbnailUrl,
+      createdAt: new Date(), updatedAt: new Date()
     };
+    
+    dataToUpdate.streaming = (formData.streams || []).filter(s => s.name && s.url).map(s => ({ name: s.name.trim(), url: s.url.trim() }));
+    dataToUpdate.downloads = (formData.downloads || []).filter(q => q.quality && q.links.length).map(q => ({
+      quality: q.quality.trim(), links: q.links.filter(l => l.host && l.url).map(l => ({ host: l.host.trim(), url: l.url.trim() }))
+    }));
 
-    // 2. Proses Streaming Links
-    if (formData.streams && Array.isArray(formData.streams)) {
-      dataToUpdate.streaming = formData.streams
-        .filter(stream => stream && stream.name && stream.url)
-        .map(stream => ({ name: stream.name.trim(), url: stream.url.trim() }));
-    } else {
-      dataToUpdate.streaming = [];
-    }
-
-    // 3. Proses Download Links
-    if (formData.downloads && Array.isArray(formData.downloads)) {
-      dataToUpdate.downloads = formData.downloads
-        .filter(qG => qG && qG.quality)
-        .map(qG => ({
-          quality: qG.quality.trim(),
-          links: (qG.links && Array.isArray(qG.links)) 
-            ? qG.links.filter(l => l && l.host && l.url).map(l => ({ host: l.host.trim(), url: l.url.trim() })) 
-            : []
-        }))
-        .filter(qG => qG.links.length > 0);
-    } else {
-      dataToUpdate.downloads = [];
-    }
-
-    // 4. Bersihkan data kosong (kecuali createdAt/updatedAt)
     Object.keys(dataToUpdate).forEach(key => {
-      if (key === 'createdAt' || key === 'updatedAt') return; // Jangan hapus tanggal
-      if (dataToUpdate[key] === undefined || dataToUpdate[key] === '') delete dataToUpdate[key];
+      if (key !== 'createdAt' && key !== 'updatedAt' && (dataToUpdate[key] === undefined || dataToUpdate[key] === '')) delete dataToUpdate[key];
     });
 
-    // 5. EKSEKUSI UPDATE
-    // PENTING: Tambahkan { timestamps: false }
-    const updatedEpisode = await Episode.findOneAndUpdate(
-      { episodeSlug: episodeSlug },
-      { $set: dataToUpdate }, 
-      { 
-        new: true, 
-        runValidators: true,
-        timestamps: false // <--- INI KUNCINYA. Matikan timestamps otomatis agar createdAt bisa ditimpa manual.
-      }
-    );
-
-    if (!updatedEpisode) return res.status(404).send('Episode not found for update.');
-
-    console.log(`Episode bumped to top: ${episodeSlug}`);
+    await Episode.findOneAndUpdate({ episodeSlug }, { $set: dataToUpdate }, { new: true, runValidators: true, timestamps: false });
     res.redirect('/admin/episodes');
-
-  } catch (error) {
-    console.error(`Admin Update Episode POST Error (${req.params.slug}):`, error);
-    res.status(500).send(`Error updating episode: ${error.message}`);
-  }
+  } catch (error) { res.status(500).send(error.message); }
 });
 
-// Rute Hapus Episode
 app.post('/admin/episode/:slug(*)/delete', isAdmin, async (req, res) => {
   try {
     const episodeSlug = "/" + decodeURIComponent(req.params.slug);
-    console.log(`Mencoba menghapus episode: ${episodeSlug}`);
-
-    const deleteEpisodeResult = await Episode.deleteOne({ episodeSlug: episodeSlug });
-
-    if (deleteEpisodeResult.deletedCount > 0) {
-      console.log(` > Sukses menghapus dari koleksi Episode: ${episodeSlug}`);
-    } else {
-      console.warn(` > Peringatan: Slug ${episodeSlug} tidak ditemukan di koleksi Episode.`);
-    }
-
-    const updateAnimeResult = await Anime.updateOne(
-      { "episodes.url": episodeSlug },
-      { $pull: { episodes: { url: episodeSlug } } }
-    );
-
-    if (updateAnimeResult.modifiedCount > 0) {
-      console.log(` > Sukses menghapus referensi dari koleksi Anime.`);
-    } else {
-      console.warn(` > Peringatan: Slug ${episodeSlug} tidak ditemukan di array 'episodes' Anime manapun.`);
-    }
-
-    // Hapus juga komentar yang terkait
-    const episode = await Episode.findOne({ episodeSlug: episodeSlug }).lean(); // Cari ID episode
-    if (episode) {
-      const deleteCommentsResult = await Comment.deleteMany({ episode: episode._id });
-      console.log(` > Menghapus ${deleteCommentsResult.deletedCount} komentar terkait.`);
-    }
-
-    if (deleteEpisodeResult.deletedCount === 0 && updateAnimeResult.modifiedCount === 0) {
-      console.error(` > Gagal total: Slug ${episodeSlug} tidak ditemukan di mana pun.`);
-    }
-
+    const episode = await Episode.findOne({ episodeSlug });
+    await Episode.deleteOne({ episodeSlug });
+    await Anime.updateOne({ "episodes.url": episodeSlug }, { $pull: { episodes: { url: episodeSlug } } });
+    if (episode) await Comment.deleteMany({ episode: episode._id });
     res.redirect('/admin/episodes');
-
-  } catch (error) {
-    console.error(`Admin Delete Episode POST Error (${req.params.slug}):`, error);
-    res.status(500).send(`Error menghapus episode: ${error.message}`);
-  }
+  } catch (error) { res.status(500).send(error.message); }
 });
 
+app.get('/admin/anime/add', isAdmin, (req, res) => res.render('admin/add-anime', { page: 'admin-add', pageTitle: 'Add Anime', pageDescription: '', pageImage: '', pageUrl: '', query: '' }));
 
-// Rute Add Anime (GET)
-app.get('/admin/anime/add', isAdmin, (req, res) => {
-  res.render('admin/add-anime', {
-    page: 'admin-add-anime', pageTitle: `Tambah Anime Baru - ${siteName}`,
-    pageDescription: '', pageImage: '', pageUrl: '', query: '', 
-  });
-});
-
-// Rute Add Anime (POST)
 app.post('/admin/anime/add', isAdmin, upload.single('animeImage'), async (req, res) => {
   try {
     const formData = req.body;
-    const file = req.file;
+    if (!formData.title || !formData.pageSlug) return res.status(400).send('Judul/Slug wajib.');
+    if (await Anime.findOne({ pageSlug: formData.pageSlug })) return res.status(400).send('Slug ada.');
 
-    if (!formData.title || !formData.pageSlug) {
-      return res.status(400).send('Judul dan Slug wajib diisi.');
-    }
-
-    const existingAnime = await Anime.findOne({ pageSlug: formData.pageSlug });
-    if (existingAnime) {
-      return res.status(400).send(`Slug "${formData.pageSlug}" sudah digunakan.`);
-    }
-
-    let imageUrl = formData.imageUrl || '/images/default.jpg'; 
-
-    // --- LOGIKA UPLOAD (Disesuaikan untuk Vercel) ---
-    if (file) {
-      console.log(`Menerima upload file: ${file.originalname}`);
-      const extension = path.extname(file.originalname); 
-      const newFilename = `${formData.pageSlug}${extension}`; 
-      
+    let imageUrl = formData.imageUrl || '/images/default.jpg';
+    if (req.file) {
       try {
-        console.log(`🚀 Mengupload ke R2: ${newFilename}...`);
-        
-        // Pastikan fungsi uploadToR2 sudah benar dan Env Vars sudah di-set di Vercel
-        const r2Url = await uploadToR2(file.buffer, newFilename, file.mimetype);
-        
-        imageUrl = r2Url; 
-        console.log(`✅ Upload R2 Berhasil: ${imageUrl}`);
-
-      } catch (uploadError) {
-        console.error("❌ Gagal upload ke R2:", uploadError);
-        
-        // PENTING: Jangan coba simpan ke lokal jika di Vercel!
-        // Langsung lempar error agar kita tahu kenapa R2 gagal.
-        throw new Error(`Upload Cloudflare R2 Gagal: ${uploadError.message}. Pastikan Environment Variables R2 sudah diset di Vercel.`);
-      }
+        imageUrl = await uploadToR2(req.file.buffer, `${formData.pageSlug}${path.extname(req.file.originalname)}`, req.file.mimetype);
+      } catch (e) { throw new Error('Upload R2 Gagal'); }
     }
 
-    const newAnimeData = {
-      title: formData.title,
-      pageSlug: formData.pageSlug,
-      imageUrl: imageUrl,
-      synopsis: formData.synopsis || '',
-      info: {
-        Alternatif: formData['info.Alternatif'] || '', 
-        Type: formData['info.Type'] || '',
-        Status: formData['info.Status'] || 'Unknown',
-        Produser: formData['info.Produser'] || '', 
-        Released: formData['info.Released'] || '',
-        Episode: '', // Sesuai schema
-      },
-      genres: formData.genres ? formData.genres.split(',').map(g => g.trim()).filter(Boolean) : [],
-      episodes: [],
-    };
-
-    const createdAnime = await Anime.create(newAnimeData);
-    console.log(`Anime baru ditambahkan: ${createdAnime.pageSlug}`);
+    await Anime.create({
+      title: formData.title, pageSlug: formData.pageSlug, imageUrl, synopsis: formData.synopsis,
+      info: { Alternatif: formData['info.Alternatif'], Type: formData['info.Type'], Status: formData['info.Status'] || 'Unknown', Released: formData['info.Released'] },
+      genres: formData.genres ? formData.genres.split(',').map(g => g.trim()) : [], episodes: []
+    });
     res.redirect('/admin/anime');
-
-  } catch (error) {
-    console.error("Admin Add Anime POST Error:", error);
-    // Tampilkan error ke layar
-    res.status(500).send(`GAGAL: ${error.message}`);
-  }
+  } catch (error) { res.status(500).send(error.message); }
 });
 
-// Rute Add Episode (POST)
 app.post('/admin/anime/:slug/episodes/add', isAdmin, async (req, res) => {
   const parentPageSlug = decodeURIComponent(req.params.slug);
   try {
     const { episodeTitle, episodeSlug, episodeDate } = req.body;
-    if (!episodeTitle || !episodeSlug) return res.status(400).send('Judul dan Slug Episode wajib diisi.');
-    const existingEpisode = await Episode.findOne({ episodeSlug: episodeSlug });
-    if (existingEpisode) return res.status(400).send(`Slug Episode "${episodeSlug}" sudah digunakan.`);
+    if (await Episode.findOne({ episodeSlug })) return res.status(400).send('Slug Episode ada.');
     const parentAnime = await Anime.findOne({ pageSlug: parentPageSlug });
-    if (!parentAnime) return res.status(404).send('Anime induk tidak ditemukan.');
-    const newEpisodeForAnime = { title: episodeTitle, url: episodeSlug, date: episodeDate || new Date().toLocaleDateString('id-ID') };
-    
-    // Buat data episode lengkap untuk koleksi Episode
-    const newEpisodeDataForCache = {
-      episodeSlug: episodeSlug, 
-      title: episodeTitle, 
-      streaming: [], 
-      downloads: [], 
-      thumbnailUrl: '/images/default_thumb.jpg',
-      animeTitle: parentAnime.title, 
-      animeSlug: parentAnime.pageSlug, 
-      animeImageUrl: parentAnime.imageUrl
-    };
-    const createdEpisode = await Episode.create(newEpisodeDataForCache);
-    console.log(`Dokumen cache dibuat untuk Episode "${episodeSlug}"`);
+    if (!parentAnime) return res.status(404).send('Anime tidak ada.');
 
-    // Tambahkan referensi ke array Anime
-    // (PENTING: Pastikan episode_id ditambahkan jika Anda membutuhkannya untuk menghapus komentar)
-    newEpisodeForAnime._id = createdEpisode._id; // <-- Tambahkan ID ke referensi
+    const createdEpisode = await Episode.create({
+      episodeSlug, title: episodeTitle, streaming: [], downloads: [], thumbnailUrl: '/images/default_thumb.jpg',
+      animeTitle: parentAnime.title, animeSlug: parentAnime.pageSlug, animeImageUrl: parentAnime.imageUrl
+    });
+
     await Anime.updateOne(
       { pageSlug: parentPageSlug },
-      { $push: { episodes: newEpisodeForAnime } }
+      { $push: { episodes: { title: episodeTitle, url: episodeSlug, date: episodeDate || new Date().toLocaleDateString('id-ID'), _id: createdEpisode._id } } }
     );
-    console.log(`Episode "${episodeSlug}" ditambahkan ke array Anime "${parentPageSlug}"`);
-
     res.redirect(`/admin/anime/${encodeURIComponent(parentPageSlug)}/edit`);
-  } catch (error) { console.error(`Admin Add Episode POST Error for ${parentPageSlug}:`, error); res.status(500).send('Gagal menambahkan episode baru.'); }
+  } catch (error) { res.status(500).send('Gagal.'); }
 });
 
+// --- PUBLIC ROUTES ---
 
-// ===================================
-// --- WEBSITE PAGE ROUTES ---
-// ===================================
-
-// app.use('/', pageRoutes); // (Ini adalah tempat Anda akan meletakkan rute halaman)
-
-app.get('/player', (req, res) => {
-  try {
-    res.render('player', { layout: false });
-  } catch (error) {
-    console.error("Gagal merender player:", error);
-    res.status(500).send("Gagal memuat player.");
-  }
-});
+app.get('/player', (req, res) => res.render('player', { layout: false }));
 
 app.get('/random', async (req, res) => {
   try {
-    const randomAnime = await Anime.aggregate([ { $sample: { size: 1 } } ]);
-    if (randomAnime && randomAnime.length > 0 && randomAnime[0].pageSlug) {
-      const slug = randomAnime[0].pageSlug;
-      const encodedSlug = encodeURIComponent(slug);
-      console.log(`Redirecting to random anime: /anime/${encodedSlug}`);
-      res.redirect(`/anime/${encodedSlug}`);
-    } else {
-      console.warn("Random anime not found, redirecting to .");
-      res.redirect('/');
-    }
-  } catch (error) {
-    console.error("Random Page Error:", error);
-    res.redirect('/');
-  }
+    const randomAnime = await Anime.aggregate([{ $sample: { size: 1 } }]);
+    if (randomAnime[0]?.pageSlug) res.redirect(`/anime/${encodeURIComponent(randomAnime[0].pageSlug)}`);
+    else res.redirect('/');
+  } catch (e) { res.redirect('/'); }
 });
 
-app.get('/jadwal', (req, res) => {
-  res.render('jadwal', {
-    page: 'jadwal',
-    pageTitle: `Jadwal Rilis - ${siteName}`,
-    pageDescription: `Jadwal rilis anime Hentai terbaru dan yang akan datang.`,
-    pageImage: `${SITE_URL}/images/default.jpg`,
-    pageUrl: SITE_URL + req.originalUrl,
-  });
-});
+app.get('/jadwal', (req, res) => res.render('jadwal', { page: 'jadwal', pageTitle: `Jadwal - ${siteName}`, pageDescription: '', pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl }));
 
-app.get('/', (req, res) => {
-  try {
-    res.render('landing', {
-      page: 'landing',
-      pageTitle: `${siteName} - Nonton Anime Subtitle Indonesia`,
-      pageDescription: 'Situs terbaik untuk nonton anime subtitle Indonesia gratis.',
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: SITE_URL,
-      query: '',
-    });
-  } catch (error) {
-    res.status(500).send('Error memuat halaman.');
-  }
-});
+app.get('/', (req, res) => res.render('landing', { page: 'landing', pageTitle: siteName, pageDescription: '', pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL, query: '' }));
 
 app.get('/home', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = ITEMS_PER_PAGE;
-    const skip = (page - 1) * limit;
-
-    const latestSeriesQuery = Anime.find({})
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .select('pageSlug imageUrl title info.Type info.Released info.Status')
-      .lean();
-    
-    const episodesQuery = Episode.find({})
-      .sort({ updatedAt: -1 })
-      .skip(skip)
-      .limit(20)
-      .lean();
-
-    const totalEpisodesQuery = Episode.countDocuments({});
+    const skip = (page - 1) * ITEMS_PER_PAGE;
 
     const [episodes, totalCount, latestSeries] = await Promise.all([
-      episodesQuery,
-      totalEpisodesQuery,
-      latestSeriesQuery
+      Episode.find().sort({ updatedAt: -1 }).skip(skip).limit(20).lean(),
+      Episode.countDocuments(),
+      Anime.find().sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
-    const totalPages = Math.ceil(totalCount / limit);
-
-    const formattedEpisodes = episodes.map(ep => {
-      let duration = '??:??';
-      if (ep.duration) {
-        duration = ep.duration.replace('PT', '').replace('H', ':').replace('M', ':').replace('S', '');
-      }
-      const displayDate = ep.updatedAt || ep.createdAt;
-      return {
-        watchUrl: `/anime${ep.episodeSlug}`,
-        title: ep.title,
-        imageUrl: ep.animeImageUrl || '/images/default.jpg',
-        duration: duration,
-        quality: '720p',
-        year: new Date(displayDate).getFullYear().toString(),
-        createdAt: displayDate // Kirim data tanggal update ke view
-      };
-    });
-
     res.render('home', {
-      page: 'home',
-      pageTitle: `${siteName} - AV Hentai Subtitle Indonesia`,
-      pageDescription: `${siteName} Nonton anime hentai subtitle indonesia. Nikmati sensasi menonton anime hentai, ecchi, uncensored, sub indo kualitas video HD 1080p 720p 480p.`,
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: SITE_URL + req.originalUrl,
-      episodes: formattedEpisodes,
-      latestSeries: latestSeries, 
-      currentPage: page,
-      totalPages: totalPages,
-      baseUrl: '/home'
+      page: 'home', pageTitle: `Home - ${siteName}`,
+      pageDescription: 'Nonton Anime Hentai Sub Indo',
+      pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl,
+      episodes: episodes.map(ep => ({
+        watchUrl: `/anime${ep.episodeSlug}`, title: ep.title, imageUrl: ep.animeImageUrl || '/images/default.jpg',
+        duration: ep.duration ? ep.duration.replace(/PT|S/g, '').replace(/[HM]/g, ':') : '??:??',
+        quality: '720p', year: new Date(ep.updatedAt || ep.createdAt).getFullYear().toString(), createdAt: ep.updatedAt || ep.createdAt
+      })),
+      latestSeries, currentPage: page, totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), baseUrl: '/home'
     });
-
-  } catch (error) {
-    console.error("Home Page Error:", error);
-    res.status(500).send('Terjadi kesalahan: ' + error.message);
-  }
+  } catch (error) { res.status(500).send(error.message); }
 });
 
-// RUTE TRENDING / POPULER
 app.get('/trending', async (req, res) => {
   try {
-    // Ambil 50 anime dengan viewCount terbanyak
-    const animes = await Anime.find({})
-      .sort({ viewCount: -1 }) // Urutkan dari yang terbesar (Descending)
-      .limit(20) // Batasi 50 item
-      .lean();
-
+    const animes = await Anime.find().sort({ viewCount: -1 }).limit(20).lean();
     res.render('trending', {
-      animes: encodeAnimeSlugs(animes), // Pastikan slug aman
-      page: 'trending',
-      pageTitle: `NekoPoi Trending - ${siteName}`,
-      pageDescription: `Daftar hentai paling populer dan paling banyak ditonton di ${siteName}.`,
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: `${SITE_URL}/trending`,
-      totalCount: animes.length
+      animes: encodeAnimeSlugs(animes), page: 'trending', pageTitle: `Trending - ${siteName}`,
+      pageDescription: 'Populer', pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: `${SITE_URL}/trending`, totalCount: animes.length
     });
-
-  } catch (error) {
-    console.error("Trending Page Error:", error);
-    res.status(500).send('Terjadi kesalahan memuat halaman trending.');
-  }
+  } catch (e) { res.status(500).send('Error.'); }
 });
-
 
 app.get('/search', async (req, res) => {
   try {
-    const searchQuery = req.query.q;
+    const q = req.query.q;
     const page = parseInt(req.query.page) || 1;
-    if (!searchQuery) return res.redirect('/');
-    const query = { title: new RegExp(searchQuery, 'i') };
-    const skipVal = (page - 1) * ITEMS_PER_PAGE;
+    if (!q) return res.redirect('/');
+    const query = { title: new RegExp(q, 'i') };
     const [animes, totalCount] = await Promise.all([
-      Anime.find(query).sort({ _id: -1 }).skip(skipVal).limit(ITEMS_PER_PAGE).lean(), Anime.countDocuments(query)
+      Anime.find(query).sort({ _id: -1 }).skip((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).lean(),
+      Anime.countDocuments(query)
     ]);
-    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
     res.render('list', {
-      animes: encodeAnimeSlugs(animes), pageTitle: `Cari: "${searchQuery}" - Halaman ${page} - ${siteName}`,
-      query: searchQuery, page: 'list', pageDescription: `Hasil pencarian untuk "${searchQuery}".`,
-      pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl,
-      currentPage: page, totalPages: totalPages, baseUrl: `/search?q=${encodeURIComponent(searchQuery)}`, totalCount: totalCount
+      animes: encodeAnimeSlugs(animes), pageTitle: `Cari: ${q}`, query: q, page: 'list',
+      pageDescription: '', pageImage: '', pageUrl: '', currentPage: page,
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), baseUrl: `/search?q=${encodeURIComponent(q)}`, totalCount
     });
-  } catch (error) { console.error("Search Error:", error); res.status(500).send('Terjadi kesalahan: ' + error.message); }
+  } catch (e) { res.status(500).send(e.message); }
 });
 
 app.get('/genre/:genreSlug', async (req, res) => {
   try {
-    const genreSlug = req.params.genreSlug;
     const page = parseInt(req.query.page) || 1;
-    
     let allGenres = appCache.get('allGenres');
-    if (allGenres == null) {
-      console.log("CACHE MISS: Mengambil 'allGenres' dari DB...");
-      allGenres = await Anime.distinct('genres');
-      appCache.set('allGenres', allGenres); 
-    }
-
-    const originalGenre = allGenres.find(g => slugify(g) === genreSlug);
-    if (!originalGenre) {
-      console.warn(`Genre slug not found: ${genreSlug}`);
-      return res.status(404).send('Genre tidak ditemukan.');
-    }
+    if (!allGenres) { allGenres = await Anime.distinct('genres'); appCache.set('allGenres', allGenres); }
+    
+    const originalGenre = allGenres.find(g => slugify(g) === req.params.genreSlug);
+    if (!originalGenre) return res.status(404).send('Genre not found');
 
     const query = { genres: originalGenre };
-    const skipVal = (page - 1) * ITEMS_PER_PAGE;
     const [animes, totalCount] = await Promise.all([
-      Anime.find(query).sort({ _id: -1 }).skip(skipVal).limit(ITEMS_PER_PAGE).lean(),
+      Anime.find(query).sort({ _id: -1 }).skip((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).lean(),
       Anime.countDocuments(query)
     ]);
-    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-
     res.render('list', {
-      animes: encodeAnimeSlugs(animes),
-      pageTitle: `Genre: ${originalGenre} - Halaman ${page} - ${siteName}`,
-      query: '', page: 'list',
-      pageDescription: `Daftar hentai dengan genre ${originalGenre}.`,
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: SITE_URL + req.originalUrl,
-      currentPage: page,
-      totalPages: totalPages,
-      baseUrl: `/genre/${genreSlug}`,
-      totalCount: totalCount
+      animes: encodeAnimeSlugs(animes), pageTitle: `Genre: ${originalGenre}`, query: '', page: 'list',
+      pageDescription: '', pageImage: '', pageUrl: '', currentPage: page,
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), baseUrl: `/genre/${req.params.genreSlug}`, totalCount
     });
-  } catch (error) { console.error("Genre Filter Error:", error); res.status(500).send('Terjadi kesalahan: ' + error.message); }
+  } catch (e) { res.status(500).send(e.message); }
 });
 
 app.get('/status/:statusSlug', async (req, res) => {
   try {
-    const statusSlug = req.params.statusSlug;
     const page = parseInt(req.query.page) || 1;
-
     let allStatuses = appCache.get('allStatuses');
-    if (allStatuses == null) {
-      console.log("CACHE MISS: Mengambil 'allStatuses' dari DB...");
-      allStatuses = await Anime.distinct('info.Status');
-      appCache.set('allStatuses', allStatuses);
-    }
-    
-    const originalStatus = allStatuses.find(s => slugify(s) === statusSlug);
-    if (!originalStatus) {
-      console.warn(`Status slug not found: ${statusSlug}`);
-      // --- PERBAIKAN 3: Ubah 44 menjadi 404 ---
-      return res.status(404).send('Status tidak ditemukan.');
-    }
+    if (!allStatuses) { allStatuses = await Anime.distinct('info.Status'); appCache.set('allStatuses', allStatuses); }
+
+    const originalStatus = allStatuses.find(s => slugify(s) === req.params.statusSlug);
+    if (!originalStatus) return res.status(404).send('Status not found');
 
     const query = { "info.Status": new RegExp(`^${originalStatus}$`, 'i') };
-    const skipVal = (page - 1) * ITEMS_PER_PAGE;
     const [animes, totalCount] = await Promise.all([
-      Anime.find(query).sort({ _id: -1 }).skip(skipVal).limit(ITEMS_PER_PAGE).lean(),
+      Anime.find(query).sort({ _id: -1 }).skip((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).lean(),
       Anime.countDocuments(query)
     ]);
-    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-
     res.render('list', {
-      animes: encodeAnimeSlugs(animes),
-      pageTitle: `Status: ${originalStatus} - Halaman ${page} - ${siteName}`,
-      query: '', page: 'list',
-      pageDescription: `Daftar hentai dengan status ${originalStatus}.`,
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: SITE_URL + req.originalUrl,
-      currentPage: page,
-      totalPages: totalPages,
-      baseUrl: `/status/${statusSlug}`,
-      totalCount: totalCount
+      animes: encodeAnimeSlugs(animes), pageTitle: `Status: ${originalStatus}`, query: '', page: 'list',
+      pageDescription: '', pageImage: '', pageUrl: '', currentPage: page,
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), baseUrl: `/status/${req.params.statusSlug}`, totalCount
     });
-  } catch (error) { console.error(`Status Filter Error (${req.params.statusSlug}):`, error); res.status(500).send('Terjadi kesalahan: ' + error.message); }
+  } catch (e) { res.status(500).send(e.message); }
 });
 
 app.get('/type/:typeSlug', async (req, res) => {
   try {
-    const typeSlug = req.params.typeSlug;
     const page = parseInt(req.query.page) || 1;
-    
     let allTypes = appCache.get('allTypes');
-    if (allTypes == null) {
-      console.log("CACHE MISS: Mengambil 'allTypes' dari DB...");
-      allTypes = await Anime.distinct('info.Type');
-      appCache.set('allTypes', allTypes);
-    }
+    if (!allTypes) { allTypes = await Anime.distinct('info.Type'); appCache.set('allTypes', allTypes); }
 
-    const originalType = allTypes.find(t => slugify(t) === typeSlug);
-    if (!originalType) {
-      console.warn(`Type slug not found: ${typeSlug}`);
-      return res.status(404).send('Type tidak ditemukan.');
-    }
+    const originalType = allTypes.find(t => slugify(t) === req.params.typeSlug);
+    if (!originalType) return res.status(404).send('Type not found');
 
     const query = { "info.Type": new RegExp(`^${originalType}$`, 'i') };
-    const skipVal = (page - 1) * ITEMS_PER_PAGE;
     const [animes, totalCount] = await Promise.all([
-      Anime.find(query).sort({ _id: -1 }).skip(skipVal).limit(ITEMS_PER_PAGE).lean(),
+      Anime.find(query).sort({ _id: -1 }).skip((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).lean(),
       Anime.countDocuments(query)
     ]);
-    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-
     res.render('list', {
-      animes: encodeAnimeSlugs(animes),
-      pageTitle: `Type: ${originalType} - Halaman ${page} - ${siteName}`,
-      query: '', page: 'list',
-      pageDescription: `Daftar hentai type ${originalType}.`,
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: SITE_URL + req.originalUrl,
-      currentPage: page,
-      totalPages: totalPages,
-      baseUrl: `/type/${typeSlug}`,
-      totalCount: totalCount
+      animes: encodeAnimeSlugs(animes), pageTitle: `Type: ${originalType}`, query: '', page: 'list',
+      pageDescription: '', pageImage: '', pageUrl: '', currentPage: page,
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), baseUrl: `/type/${req.params.typeSlug}`, totalCount
     });
-  } catch (error) { console.error(`Type Filter Error (${req.params.typeSlug}):`, error); res.status(500).send('Terjadi kesalahan: ' + error.message); }
+  } catch (e) { res.status(500).send(e.message); }
 });
 
 app.get('/studio/:studioSlug', async (req, res) => {
   try {
-    const studioSlug = req.params.studioSlug;
     const page = parseInt(req.query.page) || 1;
-
     let allStudios = appCache.get('allStudios');
-    if (allStudios == null) {
-      console.log("CACHE MISS: Mengambil 'allStudios' dari DB...");
-      allStudios = await Anime.distinct('info.Studio');
-      appCache.set('allStudios', allStudios);
-    }
-    
-    const originalStudio = allStudios.find(s => slugify(s) === studioSlug);
-    if (!originalStudio) {
-      console.warn(`Studio slug not found: ${studioSlug}`);
-      return res.status(404).send('Studio tidak ditemukan.');
-    }
+    if (!allStudios) { allStudios = await Anime.distinct('info.Studio'); appCache.set('allStudios', allStudios); }
+
+    const originalStudio = allStudios.find(s => slugify(s) === req.params.studioSlug);
+    if (!originalStudio) return res.status(404).send('Studio not found');
 
     const query = { "info.Studio": new RegExp(`^${originalStudio}$`, 'i') };
-    const skipVal = (page - 1) * ITEMS_PER_PAGE;
     const [animes, totalCount] = await Promise.all([
-      Anime.find(query).sort({ _id: -1 }).skip(skipVal).limit(ITEMS_PER_PAGE).lean(),
+      Anime.find(query).sort({ _id: -1 }).skip((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).lean(),
       Anime.countDocuments(query)
     ]);
-    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-
     res.render('list', {
-      animes: encodeAnimeSlugs(animes),
-      pageTitle: `Studio: ${originalStudio} - Halaman ${page} - ${siteName}`,
-      query: '', page: 'list',
-      pageDescription: `Daftar hentai studio ${originalStudio}.`,
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: SITE_URL + req.originalUrl,
-      currentPage: page,
-      totalPages: totalPages,
-      baseUrl: `/studio/${studioSlug}`,
-      totalCount: totalCount
+      animes: encodeAnimeSlugs(animes), pageTitle: `Studio: ${originalStudio}`, query: '', page: 'list',
+      pageDescription: '', pageImage: '', pageUrl: '', currentPage: page,
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), baseUrl: `/studio/${req.params.studioSlug}`, totalCount
     });
-  } catch (error) { console.error(`Studio Filter Error (${req.params.studioSlug}):`, error); res.status(500).send('Terjadi kesalahan: ' + error.message); }
+  } catch (e) { res.status(500).send(e.message); }
 });
 
 app.get('/hentai-list', async (req, res) => {
-   try {
+  try {
     const page = parseInt(req.query.page) || 1;
-    const skipVal = (page - 1) * ITEMS_PER_PAGE;
-  
-      // 1. Definisikan query untuk 'latestSeries'
-      const latestSeriesQuery = Anime.find({})
-        .sort({ createdAt: -1 })
-        .limit(10) // Anda bisa sesuaikan jumlah ini
-        .select('pageSlug imageUrl title info.Type info.Released info.Status')
-        .lean();
-   
-      // 2. Tambahkan 'latestSeriesQuery' ke Promise.all
     const [animes, totalCount, latestSeries] = await Promise.all([
-     Anime.find().sort({ _id: +1 }).skip(skipVal).limit(ITEMS_PER_PAGE).lean(), 
-        Anime.countDocuments(),
-        latestSeriesQuery // <-- Ditambahkan di sini
+      Anime.find().sort({ _id: 1 }).skip((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).lean(),
+      Anime.countDocuments(),
+      Anime.find().sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
-  
-    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-    
-      res.render('hentai-list', {
-        // 3. Encode 'animes' dan 'latestSeries' sebelum dikirim
-     animes: encodeAnimeSlugs(animes), 
-     page: 'hentai-list', 
-     pageTitle: `Daftar Hentai Subtitle Indonesia - Halaman ${page} - ${siteName}`,
-     pageDescription: 'Lihat semua koleksi hentai kami.', 
-     pageImage: `${SITE_URL}/images/default.jpg`, 
-     pageUrl: SITE_URL + req.originalUrl,
-     currentPage: page, 
-     totalPages: totalPages, 
-     baseUrl: '/hentai-list', 
-     totalCount: totalCount,
-     latestSeries: encodeAnimeSlugs(latestSeries) // <-- Variabel sekarang sudah ada
+    res.render('hentai-list', {
+      animes: encodeAnimeSlugs(animes), page: 'hentai-list', pageTitle: `Anime List`,
+      pageDescription: '', pageImage: '', pageUrl: '', currentPage: page,
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), baseUrl: '/hentai-list', totalCount,
+      latestSeries: encodeAnimeSlugs(latestSeries)
     });
-   } catch (error) { 
-      console.error("Anime List Error:", error); 
-      res.status(500).send('Terjadi kesalahan: ' + error.message); 
-    }
-  });
+  } catch (e) { res.status(500).send(e.message); }
+});
 
 app.get('/genre-list', async (req, res) => {
   try {
     let genres = appCache.get('allGenres');
-    if (genres == null) {
-      console.log("CACHE MISS: Mengambil 'allGenres' dari DB...");
-      genres = await Anime.distinct('genres');
-      appCache.set('allGenres', genres);
-    }
-    
-    genres.sort();
-    res.render('genre-list', {
-      genres: genres, page: 'genre-list', pageTitle: `Daftar Genre - ${siteName}`,
-      pageDescription: 'Jelajahi hentai berdasarkan genre.', pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl, 
-    });
-  } catch (error) { console.error("Genre List Error:", error); res.status(500).send('Terjadi kesalahan: ' + error.message); }
+    if (!genres) { genres = await Anime.distinct('genres'); appCache.set('allGenres', genres); }
+    res.render('genre-list', { genres: genres.sort(), page: 'genre-list', pageTitle: 'Genre List', pageDescription: '', pageImage: '', pageUrl: '' });
+  } catch (e) { res.status(500).send(e.message); }
 });
 
 app.get('/tahun-list', async (req, res) => {
   try {
-    let allReleasedDates = appCache.get('allReleasedDates');
-    if (allReleasedDates == null) {
-      console.log("CACHE MISS: Mengambil 'allReleasedDates' dari DB...");
-      allReleasedDates = await Anime.distinct('info.Released');
-      appCache.set('allReleasedDates', allReleasedDates);
-    }
-
-    const yearRegex = /(\d{4})/;
-    const years = allReleasedDates
-      .map(dateStr => {
-        const match = dateStr.match(yearRegex);
-        return match ? match[1] : null; 
-      })
-      .filter(Boolean); 
-
-    const uniqueYears = [...new Set(years)].sort((a, b) => b - a);
-
-    res.render('tahun-list', { 
-      years: uniqueYears,
-      page: 'tahun-list',
-      pageTitle: `Daftar Tahun Rilis - ${siteName}`,
-      pageDescription: 'Jelajahi hentai berdasarkan tahun rilis.',
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: SITE_URL + req.originalUrl,
-      totalCount: uniqueYears.length
-    });
-  } catch (error) {
-    console.error("Tahun List Error:", error);
-    res.status(500).send('Terjadi kesalahan: ' + error.message);
-  }
+    let dates = appCache.get('allReleasedDates');
+    if (!dates) { dates = await Anime.distinct('info.Released'); appCache.set('allReleasedDates', dates); }
+    const years = [...new Set(dates.map(d => d.match(/(\d{4})/) ? d.match(/(\d{4})/)[1] : null).filter(Boolean))].sort((a, b) => b - a);
+    res.render('tahun-list', { years, page: 'tahun-list', pageTitle: 'Tahun Rilis', pageDescription: '', pageImage: '', pageUrl: '', totalCount: years.length });
+  } catch (e) { res.status(500).send(e.message); }
 });
 
 app.get('/tahun/:year', async (req, res) => {
   try {
     const year = req.params.year;
-    if (!/^\d{4}$/.test(year)) {
-      return res.status(404).send('Tahun tidak valid.');
-    }
     const page = parseInt(req.query.page) || 1;
     const query = { "info.Released": new RegExp(year, 'i') };
-    const skipVal = (page - 1) * ITEMS_PER_PAGE;
     const [animes, totalCount] = await Promise.all([
-      Anime.find(query).sort({ _id: -1 }).skip(skipVal).limit(ITEMS_PER_PAGE).lean(),
+      Anime.find(query).sort({ _id: -1 }).skip((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).lean(),
       Anime.countDocuments(query)
     ]);
-    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-
     res.render('list', {
-      animes: encodeAnimeSlugs(animes),
-      pageTitle: `Tahun Rilis: ${year} - Halaman ${page} - ${siteName}`,
-      query: '', page: 'list',
-      pageDescription: `Daftar hentai yang rilis pada tahun ${year}.`,
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: SITE_URL + req.originalUrl,
-      currentPage: page,
-      totalPages: totalPages,
-      baseUrl: `/tahun/${year}`, 
-      totalCount: totalCount
+      animes: encodeAnimeSlugs(animes), pageTitle: `Tahun: ${year}`, query: '', page: 'list',
+      pageDescription: '', pageImage: '', pageUrl: '', currentPage: page,
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), baseUrl: `/tahun/${year}`, totalCount
     });
-  } catch (error) {
-    console.error(`Tahun Filter Error (${req.params.year}):`, error);
-    res.status(500).send('Terjadi kesalahan: ' + error.message);
-  }
+  } catch (e) { res.status(500).send(e.message); }
 });
 
-// RUTE NONTON
 app.get('/anime/:animeId/:episodeNum', async (req, res) => {
- try {
-  const { animeId, episodeNum } = req.params;
-  const episodeSlug = `/${animeId}/${episodeNum}`; 
+  try {
+    const episodeSlug = `/${req.params.animeId}/${req.params.episodeNum}`;
+    const [episodeData, parentAnime, recommendations, latestSeries] = await Promise.all([
+      Episode.findOne({ episodeSlug }).lean(),
+      Anime.findOne({ "episodes.url": episodeSlug }).lean(),
+      Anime.aggregate([{ $sample: { size: 7 } }]),
+      Anime.find({}).sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
+    ]);
 
-  const latestSeriesQuery = Anime.find({})
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .select('pageSlug imageUrl title info.Type info.Released info.Status')
-      .lean();
+    if (!episodeData) return res.status(404).render('404', { page: '404', pageTitle: '404', pageDescription: '', pageImage: '', pageUrl: '', query: '' });
 
-  const [episodeData, parentAnime, recommendations, latestSeries] = await Promise.all([
-   Episode.findOne({ episodeSlug: episodeSlug }).lean(), 
-   Anime.findOne({ "episodes.url": episodeSlug }).lean(),
-   Anime.aggregate([{ $sample: { size: 7 } }]),
-   latestSeriesQuery
-  ]);
-
-  if (!episodeData) {
-   console.error(`Gagal mendapatkan data episode dari DB untuk slug: ${episodeSlug}`);
-   return res.status(404).render('404', {
-    page: '404', pageTitle: `404 - ${siteName}`, pageDescription: 'Episode tidak ditemukan.',
-    pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl, query: '', 
-   });
-  }
-
-  // --- TAMBAHAN: UPDATE VIEW COUNT ---
-  // Menambahkan +1 viewCount ke Anime Induk setiap kali episode ditonton
-  if (parentAnime) {
-      Anime.updateOne({ _id: parentAnime._id }, { $inc: { viewCount: 1 } })
-           .exec()
-           .catch(err => console.error(`Gagal update viewCount anime: ${err.message}`));
-  }
-  // ------------------------------------
-
-  if (episodeData.streaming) episodeData.streaming = episodeData.streaming.map(s => ({ ...s, url: s.url ? Buffer.from(s.url).toString('base64') : null }));
-  if (episodeData.downloads) episodeData.downloads = episodeData.downloads.map(q => ({ ...q, links: q.links.map(l => ({ ...l, url: l.url ? Buffer.from(l.url).toString('base64') : null })) }));
-
-  const encodedRecommendations = encodeAnimeSlugs(recommendations).filter(rec => !parentAnime || rec._id.toString() !== parentAnime._id.toString());
-  const nav = { prev: null, next: null, all: null };
-
-  if (parentAnime) {
-   nav.all = `/anime/${parentAnime.pageSlug ? encodeURIComponent(parentAnime.pageSlug) : ''}`;
-   const episodes_list = parentAnime.episodes || [];
-   const currentIndex = episodes_list.findIndex(ep => ep.url === episodeSlug);
-
-   if (currentIndex > -1) {
-    if (currentIndex > 0) { 
-     const prevSlug = episodes_list[currentIndex - 1].url;
-     nav.prev = { ...episodes_list[currentIndex - 1], url: `/anime${prevSlug}` };
+    if (parentAnime) {
+      // FIX: timestamps: false agar tanggal tidak berubah saat ditonton
+      Anime.updateOne({ _id: parentAnime._id }, { $inc: { viewCount: 1 } }, { timestamps: false }).exec().catch(() => {});
     }
-    if (currentIndex < episodes_list.length - 1) { 
-     const nextSlug = episodes_list[currentIndex + 1].url;
-     nav.next = { ...episodes_list[currentIndex + 1], url: `/anime${nextSlug}` };
+
+    if (episodeData.streaming) episodeData.streaming = episodeData.streaming.map(s => ({ ...s, url: s.url ? Buffer.from(s.url).toString('base64') : null }));
+    if (episodeData.downloads) episodeData.downloads = episodeData.downloads.map(q => ({ ...q, links: q.links.map(l => ({ ...l, url: l.url ? Buffer.from(l.url).toString('base64') : null })) }));
+
+    const nav = { prev: null, next: null, all: null };
+    if (parentAnime) {
+      nav.all = `/anime/${parentAnime.pageSlug ? encodeURIComponent(parentAnime.pageSlug) : ''}`;
+      const idx = parentAnime.episodes.findIndex(ep => ep.url === episodeSlug);
+      if (idx > -1) {
+        if (idx > 0) nav.prev = { ...parentAnime.episodes[idx - 1], url: `/anime${parentAnime.episodes[idx - 1].url}` };
+        if (idx < parentAnime.episodes.length - 1) nav.next = { ...parentAnime.episodes[idx + 1], url: `/anime${parentAnime.episodes[idx + 1].url}` };
+      }
     }
-   }
-  }
 
-  const description = `Nonton ${episodeData.title || episodeSlug} Subtitle Indonesia. ${parentAnime ? (parentAnime.synopsis || '').substring(0, 160) + '...' : ''}`;
-  let seoImage = (parentAnime && parentAnime.imageUrl) ? encodeAnimeSlugs([parentAnime])[0].imageUrl : `${SITE_URL}/images/default.jpg`;
-
-  res.render('nonton', {
-   data: episodeData, 
-   nav: nav, 
-   recommendations: encodedRecommendations, 
-   page: 'nonton',
-   pageTitle: `${episodeData.title || episodeSlug} Subtitle Indonesia - ${siteName}`,
-   pageDescription: description, 
-   pageImage: seoImage, 
-   pageUrl: SITE_URL + req.originalUrl, 
-   parentAnime: parentAnime,
-   latestSeries: latestSeries
-  });
-
- } catch (error) {
-  const episodeSlugForError = `/${req.params.animeId}/${req.params.episodeNum}`;
-  console.error(`Watch Episode Error (${episodeSlugForError}):`, error);
-   res.status(500).send('Gagal memuat video: ' + error.message);
- }
+    res.render('nonton', {
+      data: episodeData, nav, recommendations: encodeAnimeSlugs(recommendations), page: 'nonton',
+      pageTitle: `${episodeData.title}`, pageDescription: parentAnime?.synopsis || '', pageImage: parentAnime?.imageUrl || '',
+      pageUrl: SITE_URL + req.originalUrl, parentAnime, latestSeries
+    });
+  } catch (error) { res.status(500).send(error.message); }
 });
 
-
-// RUTE DETAIL ANIME
 app.get('/anime/:slug', async (req, res) => {
   try {
     const pageSlug = decodeURIComponent(req.params.slug);
-    
-    const latestSeriesQuery = Anime.find({})
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .select('pageSlug imageUrl title info.Type info.Released info.Status')
-      .lean();
-
     const [animeData, recommendations, latestSeries] = await Promise.all([
-      Anime.findOne({ pageSlug: pageSlug }).lean(),
+      Anime.findOne({ pageSlug }).lean(),
       Anime.aggregate([{ $match: { pageSlug: { $ne: pageSlug } } }, { $sample: { size: 8 } }]),
-      latestSeriesQuery 
+      Anime.find().sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
-    if (!animeData) {
-      console.log(`Data '${pageSlug}' not found in DB.`);
-      return res.status(404).render('404', {
-        page: '404', pageTitle: `404 - ${siteName}`, pageDescription: 'Anime tidak ditemukan.',
-        pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl, query: '', 
-      });
-    }
+    if (!animeData) return res.status(404).render('404', { page: '404', pageTitle: '404', pageDescription: '', pageImage: '', pageUrl: '', query: '' });
 
-    Anime.updateOne({ pageSlug: pageSlug }, { $inc: { viewCount: 1 } })
-      .exec()
-      .catch(err => console.error(`Failed to increment view count for ${pageSlug}:`, err));
-
-    const encodedRecommendations = encodeAnimeSlugs(recommendations);
-    const description = (animeData.synopsis || '').substring(0, 160) + '...';
+    // FIX: timestamps: false agar tanggal tidak berubah
+    Anime.updateOne({ pageSlug }, { $inc: { viewCount: 1 } }, { timestamps: false }).exec().catch(() => {});
 
     const [encodedMainData] = encodeAnimeSlugs([animeData]);
-    encodedMainData.pageSlugEncoded = animeData.pageSlug ? encodeURIComponent(animeData.pageSlug) : null;
     encodedMainData.episodes = animeData.episodes?.map(ep => ({ ...ep, url: `/anime${ep.url}` })) || [];
 
     res.render('anime', {
-      data: encodedMainData, 
-      recommendations: encodedRecommendations, 
-      page: 'anime',
-      pageTitle: `${animeData.title || pageSlug} Subtitle Indonesia - ${siteName}`,
-      pageDescription: description, 
-      pageImage: encodedMainData.imageUrl,
-      pageUrl: SITE_URL + req.originalUrl, 
-      latestSeries: latestSeries 
+      data: encodedMainData, recommendations: encodeAnimeSlugs(recommendations), page: 'anime',
+      pageTitle: animeData.title, pageDescription: animeData.synopsis, pageImage: encodedMainData.imageUrl,
+      pageUrl: SITE_URL + req.originalUrl, latestSeries
     });
-  } catch (error) {
-    console.error(`Anime Detail Error (${req.params.slug}):`, error);
-    res.status(500).send('Terjadi kesalahan: ' + error.message);
-  }
+  } catch (error) { res.status(500).send(error.message); }
 });
 
-//redirect old pagination URLs to new format
-
-function handleOldPagination(req, res, newBasePath) {
-  const pageNumber = req.params.pageNumber;
-  // Pastikan pageNumber adalah angka
-  if (pageNumber && /^\d+$/.test(pageNumber)) {
-    const newUrl = `${newBasePath}?page=${pageNumber}`;
-    res.redirect(301, newUrl); // 301 Redirect Permanen
-  } else {
-    // Jika /page/bukan-angka, redirect ke basisnya
-    res.redirect(301, newBasePath);
-  }
-}
-
-// RUTE REDIRECT PAGINATION TRENDING (301 Permanent)
-
-// RUTE REDIRECT CATEGORY -> ANIME (301 Permanent)
-// Mengarahkan /category/pandemic/ ke /anime/pandemic/
-app.get('/category/:slug', (req, res) => {
-  const slug = req.params.slug;
-  res.redirect(301, `/anime/${slug}`);
-});
-
-app.get('/hentai/:slug', (req, res) => {
-  const slug = req.params.slug;
-  res.redirect(301, `/anime/${slug}`);
-});
-
-
-// Mengarahkan /trending/page/81 (atau angka lain) ke /trending
-app.get('/trending/page/:page', (req, res) => {
-  res.redirect(301, '/trending');
-});
-
-// Redirect untuk /anime-list/page/..
-app.get('/anime-list/', (req, res) => {
-  handleOldPagination(req, res, '/hentai-list');
-});
-
-// Redirect untuk /anime-list/page/..
-app.get('/anime-list/page/:pageNumber(\\d+)/?', (req, res) => {
-  handleOldPagination(req, res, '/hentai-list');
-});
-
-// Redirect untuk /genre/slug/page/..
-app.get('/genre/:slug/page/:pageNumber(\\d+)/?', (req, res) => {
-  handleOldPagination(req, res, `/genre/${req.params.slug}`);
-});
-
-// Redirect untuk /status/slug/page/..
-app.get('/status/:slug/page/:pageNumber(\\d+)/?', (req, res) => {
-  handleOldPagination(req, res, `/status/${req.params.slug}`);
-});
-
-// Redirect untuk /type/slug/page/..
-app.get('/type/:slug/page/:pageNumber(\\d+)/?', (req, res) => {
-  handleOldPagination(req, res, `/type/${req.params.slug}`);
-});
-
-// Redirect untuk /studio/slug/page/..
-app.get('/studio/:slug/page/:pageNumber(\\d+)/?', (req, res) => {
-  handleOldPagination(req, res, `/studio/${req.params.slug}`);
-});
-
-// Redirect untuk /tahun/tahun/page/..
-app.get('/tahun/:year/page/:pageNumber(\\d+)/?', (req, res) => {
-  handleOldPagination(req, res, `/tahun/${req.params.year}`);
-});
-
-// RUTE REDIRECT DARI /nonton/ (Legacy Nekopoi)
-// Mengubah: /nonton/judul-anime-episode-1 -> /anime/judul-anime/1
+// --- LEGACY REDIRECTS ---
+app.get('/category/:slug', (req, res) => res.redirect(301, `/anime/${req.params.slug}`));
+app.get('/hentai/:slug', (req, res) => res.redirect(301, `/anime/${req.params.slug}`));
+app.get('/trending/page/:page', (req, res) => res.redirect(301, '/trending'));
+app.get('/anime-list/', (req, res) => res.redirect(301, '/hentai-list'));
+app.get('/anime-list/page/:pageNumber(\\d+)/?', (req, res) => res.redirect(301, `/hentai-list?page=${req.params.pageNumber}`));
+app.get('/genre/:slug/page/:pageNumber(\\d+)/?', (req, res) => res.redirect(301, `/genre/${req.params.slug}?page=${req.params.pageNumber}`));
 app.get('/nonton/:slug', (req, res) => {
-  const rawSlug = req.params.slug; // isinya: "boku-ni...-episode-1"
-
-  // Regex untuk memisahkan Judul dan Nomor Episode
-  // Pola: Ambil teks sebelum "-episode-" sebagai Group 1, dan angka setelahnya sebagai Group 2
-  const match = rawSlug.match(/^(.+)-episode-(\d+)$/i);
-
-  if (match) {
-    const animeSlug = match[1]; // "boku-ni-sexfriend-ga-dekita-riyuu"
-    const episodeNum = match[2]; // "1"
-
-    // Redirect 301 (Permanen) ke format baru
-    return res.redirect(301, `/anime/${animeSlug}/${episodeNum}`);
-  }
-
-  // Jika pola tidak cocok (misal URL aneh), lempar ke Home
+  const match = req.params.slug.match(/^(.+)-episode-(\d+)$/i);
+  if (match) return res.redirect(301, `/anime/${match[1]}/${match[2]}`);
   res.redirect(301, '/');
 });
-
-
-app.get('/page/:pageNumber(\\d+)/?', (req, res) => {
-  res.redirect(301, `/home?page=${req.params.pageNumber}`);
-});
-
-// RUTE REDIRECT DARI NEKOPOI LAMA (Regex)
-// Menangkap pola: /judul-anime-panjang-episode-02-subtitle-indonesia
-app.get(/^\/(.+)-episode-(\d+)-subtitle-indonesia\/?$/, (req, res) => {
-  // req.params[0] = slug (judul anime)
-  // req.params[1] = episode (angka)
-  
-  const slug = req.params[0]; 
-  const episodeRaw = req.params[1];
-
-  // Ubah string "02" menjadi angka 2 (menghilangkan nol di depan)
-  const episodeNum = parseInt(episodeRaw, 10);
-
-  // Redirect Permanen (301) ke format baru
-  res.redirect(301, `/anime/${slug}/${episodeNum}`);
-});
-
+app.get(/^\/(.+)-episode-(\d+)-subtitle-indonesia\/?$/, (req, res) => res.redirect(301, `/anime/${req.params[0]}/${parseInt(req.params[1], 10)}`));
 
 app.get('/safelink', (req, res) => {
-  const base64Url = req.query.url;
-  if (!base64Url) {
-    return res.status(404).render('404', {
-      page: '404', pageTitle: `404 - ${siteName}`, pageDescription: 'Halaman tidak ditemukan.',
-      pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl, query: '', 
-    });
-  }
-  try {
-    res.render('safelink', {
-      page: 'safelink',
-      pageTitle: `Mengarahkan... - ${siteName}`,
-      pageDescription: 'Harap tunggu untuk diarahkan ke link Anda.',
-      pageImage: `${SITE_URL}/images/default.jpg`,
-      pageUrl: SITE_URL + req.originalUrl,
-      query: '',
-      base64Url: base64Url
-    });
-  } catch (error) {
-    console.error("Safelink render error:", error);
-    res.status(500).send('Error saat memuat halaman safelink.');
-  }
+  if (!req.query.url) return res.status(404).render('404', { page: '404', pageTitle: '404', pageDescription: '', pageImage: '', pageUrl: '', query: '' });
+  res.render('safelink', { page: 'safelink', pageTitle: 'Redirecting...', pageDescription: '', pageImage: '', pageUrl: '', query: '', base64Url: req.query.url });
 });
 
-app.get('/bookmarks', (req, res) => {
-  try {
-    res.render('bookmarks', {
-      animes: [], page: 'bookmarks', pageTitle: `Bookmark Saya - ${siteName}`, pageDescription: 'Lihat daftar anime...',
-      pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl, query: '', 
-    });
-  } catch (error) { console.error("Bookmarks Page Error:", error); res.status(500).send('Terjadi kesalahan.'); }
-});
+app.get('/bookmarks', (req, res) => res.render('bookmarks', { animes: [], page: 'bookmarks', pageTitle: 'Bookmarks', pageDescription: '', pageImage: '', pageUrl: '', query: '' }));
 
-// ===================================
-// --- RUTE AUTENTIKASI PENGGUNA ---
-// ===================================
+// --- AUTH & USER API ---
 
 app.get('/login', (req, res) => {
-  if (req.session.userId) {
-    return res.redirect('/bookmarks'); 
-  }
-  res.render('login', {
-    page: 'login',
-    pageTitle: `Login - ${siteName}`,
-    pageDescription: 'Login untuk menyimpan bookmark.',
-    pageImage: `${SITE_URL}/images/default.jpg`,
-    pageUrl: SITE_URL + req.originalUrl,
-    query: '',
-    error: req.query.error
-  });
+  if (req.session.userId) return res.redirect('/bookmarks');
+  res.render('login', { page: 'login', pageTitle: 'Login', pageDescription: '', pageImage: '', pageUrl: '', query: '', error: req.query.error });
 });
 
 app.get('/register', (req, res) => {
-  if (req.session.userId) {
-    return res.redirect('/bookmarks');
-  }
-  res.render('register', {
-    page: 'register',
-    pageTitle: `Register - ${siteName}`,
-    pageDescription: 'Buat akun baru untuk menyimpan bookmark.',
-    pageImage: `${SITE_URL}/images/default.jpg`,
-    pageUrl: SITE_URL + req.originalUrl,
-    query: '',
-    error: req.query.error
-  });
+  if (req.session.userId) return res.redirect('/bookmarks');
+  res.render('register', { page: 'register', pageTitle: 'Register', pageDescription: '', pageImage: '', pageUrl: '', query: '', error: req.query.error });
 });
 
 app.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const existingUser = await User.findOne({ $or: [{ username: username.toLowerCase() }] });
-    if (existingUser) {
-      return res.redirect('/register?error=Username sudah terdaftar');
-    }
+    if (await User.findOne({ username: username.toLowerCase() })) return res.redirect('/register?error=Username taken');
     const user = new User({ username, password });
     await user.save();
     req.session.userId = user._id;
     req.session.username = user.username;
     res.redirect('/bookmarks');
-  } catch (error) {
-    console.error("Register Error:", error);
-    res.redirect(`/register?error=${encodeURIComponent(error.message)}`);
-  }
+  } catch (e) { res.redirect(`/register?error=${encodeURIComponent(e.message)}`); }
 });
 
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     const user = await User.findOne({ username: username.toLowerCase() });
-    if (!user) {
-      return res.redirect('/login?error=Username atau Password salah');
-    }
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.redirect('/login?error=Username atau Password salah');
-    }
+    if (!user || !(await user.comparePassword(password))) return res.redirect('/login?error=Invalid credentials');
     req.session.userId = user._id;
     req.session.username = user.username;
     res.redirect('/bookmarks');
-  } catch (error) {
-    console.error("Login Error:", error);
-    res.redirect(`/login?error=${encodeURIComponent(error.message)}`);
-  }
+  } catch (e) { res.redirect(`/login?error=${encodeURIComponent(e.message)}`); }
 });
 
-app.get('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error("Logout Error:", err);
-    }
-    res.redirect('/home'); 
-  });
-});
+app.get('/logout', (req, res) => req.session.destroy(() => res.redirect('/home')));
 
-
-// ===================================
-// --- API ROUTES ---
-// ===================================
-// Rute API untuk Lapor Error
-// API SEARCH (Untuk Live Search)
 app.get('/api/search', async (req, res) => {
   try {
-    const searchQuery = req.query.q;
-    if (!searchQuery) return res.json([]);
-
-    const query = { title: new RegExp(searchQuery, 'i') };
-    const animes = await Anime.find(query)
-      .sort({ _id: -1 })
-      .limit(5) // Batasi 5 hasil agar cepat
-      .select('title pageSlug imageUrl info.Type info.Status') // Ambil field penting saja
-      .lean();
-
+    if (!req.query.q) return res.json([]);
+    const animes = await Anime.find({ title: new RegExp(req.query.q, 'i') }).sort({ _id: -1 }).limit(5).select('title pageSlug imageUrl info.Type info.Status').lean();
     res.json(animes);
-  } catch (error) {
-    res.status(500).json([]);
-  }
+  } catch (e) { res.json([]); }
 });
 
-app.post('/api/report-error',  isLoggedIn, async (req, res) => {
+app.post('/api/report-error', isLoggedIn, async (req, res) => {
   try {
-    const { pageUrl, message } = req.body;
-    const userId = req.session.userId; // Ambil ID user jika login
-
-    if (!pageUrl || !message || message.trim() === '') {
-      return res.status(400).json({ success: false, message: 'Laporan tidak boleh kosong.' });
-    }
-
-    const newReport = new Report({
-      pageUrl: pageUrl,
-      message: message,
-      user: userId,
-      status: 'Baru'
-    });
-    await newReport.save();
-
-    res.status(201).json({ success: true, message: 'Laporan berhasil terkirim. Terima kasih!' });
-  } catch (error) {
-    console.error("API /api/report-error Error:", error);
-    res.status(500).json({ success: false, message: 'Gagal mengirim laporan.' });
-  }
+    await Report.create({ pageUrl: req.body.pageUrl, message: req.body.message, user: req.session.userId, status: 'Baru' });
+    res.status(201).json({ success: true });
+  } catch (e) { res.status(500).json({ success: false }); }
 });
 
-
-// Middleware tetap digunakan
 app.use('/api/tahun-ini', checkApiReferer);
 app.use('/api/genre/uncensored', checkApiReferer);
 
-// 1. API Tahun Ini (Dengan Cache)
 app.get('/api/tahun-ini', async (req, res) => {
+  const cached = appCache.get('api_tahun_ini');
+  if (cached) return res.json(cached);
   try {
-    const cacheKey = 'api_tahun_ini'; // Kunci unik untuk cache ini
-    const cachedData = appCache.get(cacheKey); // Cek apakah data ada di RAM
-
-    // JIKA ADA DI CACHE: Langsung kirim, stop proses di sini
-    if (cachedData) {
-      return res.json(cachedData);
-    }
-
-    // JIKA TIDAK ADA: Ambil dari Database
-    const currentYear = new Date().getFullYear();
-    const yearRegex = new RegExp(currentYear.toString()); 
-    
-    const animes = await Anime.find({ 'info.Released': yearRegex }) 
-      .sort({ createdAt: -1 }) 
-      .limit(6) 
-      .select('pageSlug imageUrl title genres') 
-      .lean();
-
-    // Simpan ke Cache agar request berikutnya tidak perlu ke DB lagi
-    // (Durasi sesuai setting stdTTL di server.js, yaitu 1 jam)
-    appCache.set(cacheKey, animes);
-
+    const animes = await Anime.find({ 'info.Released': new RegExp(new Date().getFullYear().toString()) }).sort({ createdAt: -1 }).limit(6).select('pageSlug imageUrl title genres').lean();
+    appCache.set('api_tahun_ini', animes);
     res.json(animes);
-
-  } catch (error) {
-    console.error('Error fetching API /api/tahun-ini:', error);
-    res.status(500).json({ error: 'Gagal memuat data' });
-  }
+  } catch (e) { res.status(500).json({ error: 'Error' }); }
 });
 
-// 2. API Genre Uncensored (Dengan Cache)
 app.get('/api/genre/uncensored', async (req, res) => {
+  const cached = appCache.get('api_genre_uncensored');
+  if (cached) return res.json(cached);
   try {
-    const cacheKey = 'api_genre_uncensored'; // Kunci unik
-    const cachedData = appCache.get(cacheKey);
-
-    // JIKA ADA DI CACHE
-    if (cachedData) {
-      return res.json(cachedData);
-    }
-
-    // JIKA TIDAK ADA
-    const animes = await Anime.find({ 'genres': /uncensored/i }) 
-      .sort({ createdAt: -1 }) 
-      .limit(6) 
-      .select('pageSlug imageUrl title genres') 
-      .lean();
-
-    // Simpan ke Cache
-    appCache.set(cacheKey, animes);
-
+    const animes = await Anime.find({ 'genres': /uncensored/i }).sort({ createdAt: -1 }).limit(6).select('pageSlug imageUrl title genres').lean();
+    appCache.set('api_genre_uncensored', animes);
     res.json(animes);
-
-  } catch (error) {
-    console.error('Error fetching API /api/genre/uncensored:', error);
-    res.status(500).json({ error: 'Gagal memuat data' });
-  }
+  } catch (e) { res.status(500).json({ error: 'Error' }); }
 });
 
-// --- Rute API Bookmark ---
-app.get('/api/bookmark-status', async (req, res) => { try { const { userId, animeId } = req.query; if (!userId || !mongoose.Types.ObjectId.isValid(animeId)) return res.status(400).json({ isBookmarked: false, error: '...' }); const bookmark = await Bookmark.findOne({ userId: userId, animeRef: animeId }); res.json({ isBookmarked: !!bookmark }); } catch (error) { console.error("API /api/bookmark-status Error:", error); res.status(500).json({ isBookmarked: false, error: '...' }); } });
-app.post('/api/bookmarks', async (req, res) => { try { const { userId, animeId } = req.body; if (!userId || !mongoose.Types.ObjectId.isValid(animeId)) return res.status(400).json({ success: false, error: '...' }); await Bookmark.findOneAndUpdate({ userId: userId, animeRef: animeId }, { $setOnInsert: { userId: userId, animeRef: animeId } }, { upsert: true }); res.status(200).json({ success: true, isBookmarked: true }); } catch (error) { console.error("API POST /api/bookmarks Error:", error); res.status(500).json({ success: false, error: '...' }); } });
-app.delete('/api/bookmarks', async (req, res) => { try { const { userId, animeId } = req.query; if (!userId || !mongoose.Types.ObjectId.isValid(animeId)) return res.status(400).json({ success: false, error: '...' }); await Bookmark.deleteOne({ userId: userId, animeRef: animeId }); res.status(200).json({ success: true, isBookmarked: false }); } catch (error) { console.error("API DELETE /api/bookmarks Error:", error); res.status(500).json({ success: false, error: '...' }); } });
+app.get('/api/bookmark-status', async (req, res) => {
+  try {
+    const { userId, animeId } = req.query;
+    if (!userId || !mongoose.Types.ObjectId.isValid(animeId)) return res.json({ isBookmarked: false });
+    const bookmark = await Bookmark.findOne({ userId, animeRef: animeId });
+    res.json({ isBookmarked: !!bookmark });
+  } catch (e) { res.status(500).json({ isBookmarked: false }); }
+});
+
+app.post('/api/bookmarks', async (req, res) => {
+  try {
+    const { userId, animeId } = req.body;
+    await Bookmark.findOneAndUpdate({ userId, animeRef: animeId }, { $setOnInsert: { userId, animeRef: animeId } }, { upsert: true });
+    res.json({ success: true, isBookmarked: true });
+  } catch (e) { res.status(500).json({ success: false }); }
+});
+
+app.delete('/api/bookmarks', async (req, res) => {
+  try {
+    const { userId, animeId } = req.query;
+    await Bookmark.deleteOne({ userId, animeRef: animeId });
+    res.json({ success: true, isBookmarked: false });
+  } catch (e) { res.status(500).json({ success: false }); }
+});
+
 app.get('/api/my-bookmarks', async (req, res) => {
   try {
-    const userId = req.query.userId;
-    if (!userId) return res.json([]);
-    const bookmarks = await Bookmark.find({ userId: userId })
-      .populate({
-        path: 'animeRef',
-        model: 'Anime',
-        select: 'title pageSlug imageUrl episodes info.Released info.Status'
-      })
-      .sort({ createdAt: -1 })
-      .lean();
-    const animes = bookmarks.map(b => b.animeRef).filter(Boolean);
-    res.json(encodeAnimeSlugs(animes)); 
-  } catch (error) {
-    console.error("API /api/my-bookmarks Error:", error);
-    res.status(500).json({ error: 'Gagal memuat bookmark' });
-  }
+    if (!req.query.userId) return res.json([]);
+    const bookmarks = await Bookmark.find({ userId: req.query.userId }).populate('animeRef', 'title pageSlug imageUrl episodes info.Released info.Status').sort({ createdAt: -1 }).lean();
+    res.json(encodeAnimeSlugs(bookmarks.map(b => b.animeRef).filter(Boolean)));
+  } catch (e) { res.status(500).json({ error: 'Error' }); }
 });
+
 app.delete('/api/bookmarks/all', async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'userId diperlukan' });
-    }
-    const deleteResult = await Bookmark.deleteMany({ userId: userId });
-    console.log(`Cleared ${deleteResult.deletedCount} bookmarks for userId: ${userId}`);
-    res.status(200).json({ success: true, deletedCount: deleteResult.deletedCount });
-  } catch (error) {
-    console.error("API DELETE /api/bookmarks/all Error:", error);
-    res.status(500).json({ success: false, error: 'Gagal menghapus semua bookmark' });
-  }
+    await Bookmark.deleteMany({ userId: req.query.userId });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false }); }
 });
 
-
-// ==========================================================
-// == API V1 (UNTUK FLUTTER/EXTERNAL) ==
-// ==========================================================
-
-// --- BARU: Gunakan file router eksternal ---
 app.use('/api/v1', apiV1Routes);
 
-// --- DIHAPUS ---
-// Semua rute app.get('/api/v1/...') telah dipindahkan
-// ke routes/api_v1.js
-// -----------------
+// --- SEO & SITEMAPS ---
 
-
-// ===================================
-// --- UTILITY ROUTES (ADMIN & SEO) ---
-// ===================================
-
-/*
-app.get('/batch-scrape', isAdmin, async (req, res) => { 
-  // ... (Dinonaktifkan)
-  res.status(503).json({ error: 'Fungsi batch-scrape telah dinonaktifkan.' });
-});
-*/
-
-// Rute robots.txt (Versi Optimal)
 app.get('/robots.txt', (req, res) => {
- res.type('text/plain');
- res.send(
-  `User-agent: *\n` +
-  `Allow: /\n` +
-  `\n` +
-  `# Path yang tidak boleh di-index\n` +
-  `Disallow: /admin/\n` +
-  `Disallow: /search\n` +
-  `Disallow: /safelink\n` +
-  `Disallow: /player\n` +
-  `\n` +
-  `# Blokir semua rute API\n` +
-  `Disallow: /api/\n` + 
-  `\n` +
-  `Sitemap: ${SITE_URL}/sitemap_index.xml`
- );
+  res.type('text/plain');
+  res.send(`User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /search\nDisallow: /safelink\nDisallow: /player\nDisallow: /api/\nSitemap: ${SITE_URL}/sitemap_index.xml`);
 });
 
 app.get('/sitemap_index.xml', (req, res) => {
-  const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-  const xmlFooter = '</sitemapindex>';
-  const lastMod = new Date().toISOString().split('T')[0]; 
-  let xmlBody = '';
-  const sitemaps = [
-    'sitemap-static.xml', 'sitemap-anime.xml',
-    'sitemap-episode.xml', 'sitemap-taxonomies.xml'
-  ];
-  sitemaps.forEach(sitemapUrl => {
-    xmlBody += `<sitemap><loc>${SITE_URL}/${sitemapUrl}</loc><lastmod>${lastMod}</lastmod></sitemap>`;
-  });
+  const lastMod = new Date().toISOString().split('T')[0];
+  const sitemaps = ['sitemap-static.xml', 'sitemap-anime.xml', 'sitemap-episode.xml', 'sitemap-taxonomies.xml'];
   res.header('Content-Type', 'application/xml');
-  res.send(xmlHeader + xmlBody + xmlFooter);
+  res.send(`<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${sitemaps.map(s => `<sitemap><loc>${SITE_URL}/${s}</loc><lastmod>${lastMod}</lastmod></sitemap>`).join('')}</sitemapindex>`);
 });
 
 app.get('/sitemap-static.xml', (req, res) => {
-  const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-  const xmlFooter = '</urlset>';
-  let xmlBody = '';
-  const formatDate = (date) => date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-  const staticPages = [
-    { url: '/', changefreq: 'monthly', priority: '0.8' },
-    { url: '/home', changefreq: 'daily', priority: '1.0' },
-    { url: '/hentai-list', changefreq: 'daily', priority: '0.9' },
-    { url: '/genre-list', changefreq: 'weekly', priority: '0.7' },
-    { url: '/tahun-list', changefreq: 'yearly', priority: '0.7' },
-    { url: '/login', changefreq: 'weekly', priority: '0.7' },
-    { url: '/register', changefreq: 'weekly', priority: '0.7' },
-    { url: '/jadwal', changefreq: 'daily', priority: '0.8' }
+  const pages = [
+    { url: '/', cf: 'monthly', p: '0.8' }, { url: '/home', cf: 'daily', p: '1.0' },
+    { url: '/hentai-list', cf: 'daily', p: '0.9' }, { url: '/genre-list', cf: 'weekly', p: '0.7' },
+    { url: '/tahun-list', cf: 'yearly', p: '0.7' }, { url: '/jadwal', cf: 'daily', p: '0.8' }
   ];
-  staticPages.forEach(page => {
-    xmlBody += `<url><loc>${SITE_URL}${page.url}</loc><lastmod>${formatDate(new Date())}</lastmod><changefreq>${page.changefreq}</changefreq><priority>${page.priority}</priority></url>`;
-  });
   res.header('Content-Type', 'application/xml');
-  res.send(xmlHeader + xmlBody + xmlFooter);
+  res.send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map(p => `<url><loc>${SITE_URL}${p.url}</loc><lastmod>${new Date().toISOString().split('T')[0]}</lastmod><changefreq>${p.cf}</changefreq><priority>${p.p}</priority></url>`).join('')}</urlset>`);
 });
 
 app.get('/sitemap-anime.xml', async (req, res) => {
-  try {
-    const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-    const xmlFooter = '</urlset>';
-    const formatDate = (date) => date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-
-    res.header('Content-Type', 'application/xml');
-    res.write(xmlHeader); 
-
-    const cursor = Anime.find({}, 'pageSlug updatedAt').lean().cursor();
-
-    for (let anime = await cursor.next(); anime != null; anime = await cursor.next()) {
-      if (anime.pageSlug) {
-        const urlEntry = `<url><loc>${SITE_URL}/anime/${encodeURIComponent(anime.pageSlug)}</loc><lastmod>${formatDate(anime.createdAt)}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>`;
-        res.write(urlEntry); 
-      }
-    }
-    
-    res.end(xmlFooter); 
-
-  } catch (error) {
-    console.error('Error generating sitemap-anime.xml:', error.message);
-    res.status(500).send('Gagal membuat sitemap');
+  res.header('Content-Type', 'application/xml');
+  res.write('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+  const cursor = Anime.find({}, 'pageSlug updatedAt').lean().cursor();
+  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+    if (doc.pageSlug) res.write(`<url><loc>${SITE_URL}/anime/${encodeURIComponent(doc.pageSlug)}</loc><lastmod>${doc.updatedAt ? new Date(doc.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>`);
   }
+  res.end('</urlset>');
 });
 
 app.get('/sitemap-episode.xml', async (req, res) => {
-  try {
-    const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-    const xmlFooter = '</urlset>';
-    const formatDate = (date) => date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-    
-    res.header('Content-Type', 'application/xml');
-    res.write(xmlHeader);
-
-    const cursor = Episode.find({}, 'episodeSlug updatedAt').lean().cursor();
-    
-    for (let episode = await cursor.next(); episode != null; episode = await cursor.next()) {
-      if (episode.episodeSlug) { 
-        const urlEntry = `<url><loc>${SITE_URL}/anime${episode.episodeSlug}</loc><lastmod>${formatDate(episode.createdAt)}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>`;
-        res.write(urlEntry);
-      }
-    }
-
-    res.end(xmlFooter);
-
-  } catch (error) {
-    console.error('Error generating sitemap-episode.xml:', error.message);
-    res.status(500).send('Gagal membuat sitemap');
+  res.header('Content-Type', 'application/xml');
+  res.write('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+  const cursor = Episode.find({}, 'episodeSlug updatedAt').lean().cursor();
+  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+    if (doc.episodeSlug) res.write(`<url><loc>${SITE_URL}/anime${doc.episodeSlug}</loc><lastmod>${doc.updatedAt ? new Date(doc.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>`);
   }
+  res.end('</urlset>');
 });
 
 app.get('/sitemap-taxonomies.xml', async (req, res) => {
-  try {
-    const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-    const xmlFooter = '</urlset>';
-    let xmlBody = '';
-
-    let [genres, types, studios, allReleasedDates] = [
-      appCache.get('allGenres'),
-      appCache.get('allTypes'),
-      appCache.get('allStudios'),
-      appCache.get('allReleasedDates')
-    ];
-
-    if (!genres) { genres = await Anime.distinct('genres').exec(); appCache.set('allGenres', genres); }
-    if (!types) { types = await Anime.distinct('info.Type').exec(); appCache.set('allTypes', types); }
-    if (!studios) { studios = await Anime.distinct('info.Studio').exec(); appCache.set('allStudios', studios); }
-    if (!allReleasedDates) { allReleasedDates = await Anime.distinct('info.Released'); appCache.set('allReleasedDates', allReleasedDates); }
-
-    genres.forEach(genre => {
-      if (genre) xmlBody += `<url><loc>${SITE_URL}/genre/${slugify(genre)}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`;
-    });
-
-    types.forEach(type => {
-      if (type) xmlBody += `<url><loc>${SITE_URL}/type/${slugify(type)}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`;
-    });
-
-    studios.forEach(studio => {
-      if (studio) xmlBody += `<url><loc>${SITE_URL}/studio/${slugify(studio)}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`;
-    });
-
-    const yearRegex = /(\d{4})/;
-    const years = allReleasedDates.map(d => d.match(yearRegex) ? d.match(yearRegex)[1] : null).filter(Boolean);
-    const uniqueYears = [...new Set(years)];
-    uniqueYears.forEach(year => {
-      xmlBody += `<url><loc>${SITE_URL}/tahun/${year}</loc><changefreq>yearly</changefreq><priority>0.6</priority></url>`;
-    });
-
-    res.header('Content-Type', 'application/xml');
-    res.send(xmlHeader + xmlBody + xmlFooter);
-  } catch (error) {
-    console.error('Error generating sitemap-taxonomies.xml:', error.message);
-    res.status(500).send('Gagal membuat sitemap');
-  }
+  let [genres, types, studios, dates] = [appCache.get('allGenres'), appCache.get('allTypes'), appCache.get('allStudios'), appCache.get('allReleasedDates')];
+  if (!genres) genres = await Anime.distinct('genres');
+  if (!types) types = await Anime.distinct('info.Type');
+  if (!studios) studios = await Anime.distinct('info.Studio');
+  if (!dates) dates = await Anime.distinct('info.Released');
+  
+  const years = [...new Set(dates.map(d => d.match(/(\d{4})/) ? d.match(/(\d{4})/)[1] : null).filter(Boolean))];
+  let xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
+  
+  genres.forEach(g => xml += `<url><loc>${SITE_URL}/genre/${slugify(g)}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`);
+  types.forEach(t => xml += `<url><loc>${SITE_URL}/type/${slugify(t)}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`);
+  studios.forEach(s => xml += `<url><loc>${SITE_URL}/studio/${slugify(s)}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`);
+  years.forEach(y => xml += `<url><loc>${SITE_URL}/tahun/${y}</loc><changefreq>yearly</changefreq><priority>0.6</priority></url>`);
+  
+  res.header('Content-Type', 'application/xml');
+  res.send(xml + '</urlset>');
 });
 
-// ===================================
-// --- 404 HANDLER (MUST BE LAST Route) ---
-// ===================================
-app.use((req, res, next) => {
-  res.status(404).render('404', {
-    page: '404', pageTitle: `404 - Halaman Tidak Ditemukan - ${siteName}`,
-    pageDescription: 'Maaf, halaman yang Anda cari tidak ada.',
-    pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl, query: '', 
-  });
-});
-
-// ===================================
-// --- START DATABASE & SERVER ---
-// ===================================
+app.use((req, res) => res.status(404).render('404', { page: '404', pageTitle: '404 Not Found', pageDescription: '', pageImage: '', pageUrl: '', query: '' }));
 
 if (!DB_URI) {
-  console.error("FATAL ERROR: DB_URI is not defined in environment variables.");
-  process.exit(1); 
+  console.error("FATAL: DB_URI missing.");
+  process.exit(1);
 }
 
 const startServer = async () => {
   try {
-    await mongoose.connect(DB_URI, {
-      serverSelectionTimeoutMS: 30000
-    });
-    console.log('Successfully connected to MongoDB...');
-
-    app.listen(PORT, () => {
-      console.log(`Server is running on port: ${PORT}`);
-      console.log(`Access at: ${SITE_URL}`); 
-    });
-
+    await mongoose.connect(DB_URI, { serverSelectionTimeoutMS: 30000 });
+    console.log('Connected to MongoDB.');
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (err) {
-    console.error('Failed to connect to MongoDB. Server will not start.', err);
-    process.exit(1); 
+    console.error('Failed to connect DB.', err);
+    process.exit(1);
   }
 };
 
 startServer();
-// --- PERBAIKAN: Hapus '}' ekstra dari sini ---
-// (Sudah dihapus di versi ini)
