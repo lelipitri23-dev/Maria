@@ -134,7 +134,7 @@ router.get('/home', async (req, res) => {
       .lean();
 
     // B. Anime Ended (Tamat/Completed)
-    const endedQuery = Anime.find({ "info.Status": "Completed" }) // Sesuaikan value DB ("Completed"/"Ended"/"Tamat")
+    const endedQuery = Anime.find({ "info.Status": "Ended" }) // Sesuaikan value DB ("Completed"/"Ended"/"Tamat")
       .sort({ updatedAt: -1 })
       .limit(10)
       .select('pageSlug imageUrl title info.Type info.Rating info.Status')
