@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 
 // --- IMPORT MODELS ---
 // Pastikan path '../models/...' sesuai dengan struktur folder kamu
