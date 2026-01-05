@@ -747,7 +747,7 @@ app.get('/hentai-list', async (req, res) => {
     const [animes, totalCount, latestSeries] = await Promise.all([
       Anime.find().sort({ _id: 1 }).skip((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).lean(),
       Anime.countDocuments(),
-      Anime.find().sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
+      Anime.find().sort({ createdAt: -1 }).limit(12).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
     // Logic Judul & URL
@@ -798,7 +798,7 @@ app.get('/anime/:animeId/:episodeNum', async (req, res) => {
       Episode.findOne({ episodeSlug }).lean(),
       Anime.findOne({ "episodes.url": episodeSlug }).lean(),
       Anime.aggregate([{ $sample: { size: 7 } }]),
-      Anime.find({}).sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
+      Anime.find({}).sort({ createdAt: -1 }).limit(12).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
     // Jika episode tidak ditemukan, tampilkan 404
@@ -869,7 +869,7 @@ app.get('/anime/:slug', async (req, res) => {
     const [animeData, recommendations, latestSeries] = await Promise.all([
       Anime.findOne({ pageSlug }).lean(),
       Anime.aggregate([{ $match: { pageSlug: { $ne: pageSlug } } }, { $sample: { size: 8 } }]),
-      Anime.find().sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
+      Anime.find().sort({ createdAt: -1 }).limit(12).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
     if (!animeData) return res.status(404).render('404', { page: '404', pageTitle: '404', pageDescription: '', pageImage: '', pageUrl: '', query: '' });
