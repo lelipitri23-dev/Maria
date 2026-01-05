@@ -497,7 +497,7 @@ app.get('/home', async (req, res) => {
     const [episodes, totalCount, latestSeries] = await Promise.all([
       Episode.find().sort({ updatedAt: -1 }).skip(skip).limit(20).lean(),
       Episode.countDocuments(),
-      Anime.find().sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
+      Anime.find().sort({ createdAt: -1 }).limit(12).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
     res.render('home', {
