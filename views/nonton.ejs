@@ -1,219 +1,287 @@
-<%- include('partials/header', { /* data header */ }) %>
+<%- include('partials/header', {
+  /* data header */
+}) %>
 
- <% 
-  // --- LOGIKA JSON-LD SCHEMA ---
-  // 1. Ambil Sinopsis
-  const schemaDesc = (typeof parentAnime !== 'undefined' && parentAnime.synopsis) 
-      ? parentAnime.synopsis.replace(/[\r\n]+/g, " ").substring(0, 5000) 
-      : data.title;
-  
+<%
+// --- LOGIKA JSON-LD SCHEMA ---
 
-  // 3. AMBIL VIEW COUNT (DARI DATABASE)
-  // Kita mengambil dari 'parentAnime.viewCount' karena itu yang di-update di server.js
-  const totalViews = (typeof parentAnime !== 'undefined' && parentAnime.viewCount) ? parentAnime.viewCount : 0;
+// 1. Ambil Sinopsis (Bersihkan dari enter/newline)
+const schemaDesc = (typeof parentAnime !== 'undefined' && parentAnime.synopsis)
+? parentAnime.synopsis.replace(/[\r\n]+/g, " ").substring(0, 5000): data.title;
 
-  // 4. Susun Objek JSON
-  const videoSchema = {
-    "@context": "https://schema.org",
-    "@type": "VideoObject",
-    "name": `${data.title} Subtitle Indonesia`,
-    "description": schemaDesc,
-    "uploadDate": new Date(data.createdAt || Date.now()).toISOString(),
-    "thumbnailUrl": 
-       pageImage 
-    ,
-    "contentUrl": pageUrl,
-    "embedUrl": pageUrl,
-    "interactionStatistic": {
-      "@type": "InteractionCounter",
-      "interactionType": { "@type": "WatchAction" },
-      "userInteractionCount": totalViews // <-- DATA DINAMIS DARI DB
+// 2. Ambil View Count
+const totalViews = (typeof parentAnime !== 'undefined' && parentAnime.viewCount)
+? parentAnime.viewCount: 0;
+
+// 3. Ambil Genre untuk FAQ
+const animeGenre = (typeof parentAnime !== 'undefined' && parentAnime.genres)
+? parentAnime.genres.join(', '): 'Unknown';
+
+// 4. Schema VideoObject
+const videoSchema = {
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "name": `${data.title} Subtitle Indonesia`,
+  "description": schemaDesc,
+  "uploadDate": new Date(data.createdAt || Date.now()).toISOString(),
+  "thumbnailUrl": pageImage,
+  "contentUrl": pageUrl,
+  "embedUrl": pageUrl,
+  "interactionStatistic": {
+    "@type": "InteractionCounter",
+    "interactionType": {
+      "@type": "WatchAction"
+    },
+    "userInteractionCount": totalViews
+  }
+};
+
+// 5. Schema FAQ
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [{
+    "@type": "Question",
+    "name": `Nonton anime ${data.title} Sub Indo dimana?`,
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": `Kamu bisa nonton anime ${data.title} subtitle indonesia di ${siteName} dengan kualitas HD, server cepat, dan tanpa iklan yang mengganggu.`
     }
-  };
+  },
+    {
+      "@type": "Question",
+      "name": `Apa genre dari anime ${data.title}?`,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": `Anime ini memiliki genre utama: ${animeGenre}.`
+      }
+    },
+    {
+      "@type": "Question",
+      "name": `Bagaimana cara download ${data.title} Sub Indo?`,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Scroll ke bawah video player, pilih server download yang tersedia (seperti GDrive atau Zippyshare), lalu klik link safelink untuk mulai mengunduh."
+      }
+    }]
+};
 %>
 
 <script type="application/ld+json">
   <%- JSON.stringify(videoSchema) %>
 </script>
+<script type="application/ld+json">
+  <%- JSON.stringify(faqSchema) %>
+</script>
 
-
-
-<% 
-  // Filter stream agar tidak menampilkan 'bonus'
-  const filteredStreams = data.streaming ? data.streaming.filter(stream => stream.name.toLowerCase() !== 'bonus') : [];
+<%
+// Filter stream agar tidak menampilkan 'bonus'
+const filteredStreams = data.streaming ? data.streaming.filter(stream => stream.name.toLowerCase() !== 'bonus'): [];
 %>
 
-<main class="flex-1 w-full min-w-0">
+<main class="flex-1 w-full min-w-0 relative z-10">
   <article class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
-    
+
     <header class="p-4 border-b border-[#33303f]">
       <h1 class="text-xl md:text-2xl font-bold text-[var(--text-main)] mb-2"><%= data.title %> Subtitle Indonesia</h1>
       <div class="text-xs text-muted flex gap-2 items-center">
         <span class="bg-primary/10 text-primary px-2 py-0.5 rounded">Admin</span>
         <span>•</span>
-        <span><%= new Date(data.createdAt || Date.now()).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) %></span>
+        <span><%= new Date(data.createdAt || Date.now()).toLocaleString('id-ID', {
+          dateStyle: 'short', timeStyle: 'short'
+        }) %></span>
       </div>
     </header>
 
     <div class="bg-black relative w-full aspect-video">
       <div id="embed_holder" class="w-full h-full">
-        <% if (filteredStreams.length > 0) { 
-            const firstStream = filteredStreams[0];
-            const streamName = firstStream.name.toLowerCase();
-            let firstIframeString;
-            
-            // Logic Generate Iframe
-            if (['mirror', 'viplay', 'earnvids'].includes(streamName)) {
-              const decodedEmbedUrl = Buffer.from(firstStream.url, 'base64').toString('utf8');
-              firstIframeString = `<iframe src="${decodedEmbedUrl}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
-            } else {
-              firstIframeString = `<iframe src="/player?url=${firstStream.url}&title=${encodeURIComponent(data.title)}&poster=${encodeURIComponent(pageImage)}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
-            }
-        %>
+        <% if (filteredStreams.length > 0) {
+          const firstStream = filteredStreams[0];
+          const streamName = firstStream.name.toLowerCase();
+          let firstIframeString;
+
+          // Logic Generate Iframe
+          if (['mirror', 'viplay', 'earnvids'].includes(streamName)) {
+            const decodedEmbedUrl = Buffer.from(firstStream.url, 'base64').toString('utf8');
+            firstIframeString = `<iframe src="${decodedEmbedUrl}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
+          } else {
+            firstIframeString = `<iframe src="/player?url=${firstStream.url}&title=${encodeURIComponent(data.title)}&poster=${encodeURIComponent(pageImage)}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
+          }
+          %>
           <div id="pembed" class="w-full h-full" data-default="<%= Buffer.from(firstIframeString).toString('base64') %>">
             <script>
               document.write(atob(document.getElementById('pembed').getAttribute('data-default')));
             </script>
           </div>
-        <% } else { %>
-           <div class="flex items-center justify-center h-full text-white">Maaf, tidak ada link stream.</div>
-        <% } %>
+          <%
+        } else {
+          %>
+          <div class="flex items-center justify-center h-full text-white">
+            Maaf, tidak ada link stream.
+          </div>
+          <%
+        } %>
       </div>
     </div>
 
     <div class="bg-darker p-3 flex flex-col lg:flex-row justify-between items-center gap-4 border-t border-[#33303f]">
-      
+
       <div class="flex items-center gap-2 w-full lg:w-auto justify-center lg:justify-start">
         <select class="bg-card text-[var(--text-main)] text-sm border border-[#444] rounded px-3 py-1.5 w-full md:w-auto cursor-pointer focus:outline-none focus:border-primary" onchange="loadMi(this.options[this.selectedIndex])">
-           <% filteredStreams.forEach((stream, index) => { 
-               let iframeString;
-               const sName = stream.name.toLowerCase();
-               if (['mirror', 'viplay', 'earnvids'].includes(sName)) {
-                  const decUrl = Buffer.from(stream.url, 'base64').toString('utf8');
-                  iframeString = `<iframe src="${decUrl}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
-               } else {
-                  iframeString = `<iframe src="/player?url=${stream.url}&title=${encodeURIComponent(data.title)}&poster=${encodeURIComponent(pageImage)}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
-               }
-               const base64Iframe = Buffer.from(iframeString).toString('base64');
-           %>
-           <option value="<%= index %>" data-em="<%= base64Iframe %>" <%= index === 0 ? 'selected' : '' %>>
+          <% filteredStreams.forEach((stream, index) => {
+            let iframeString;
+            const sName = stream.name.toLowerCase();
+            if (['mirror', 'viplay', 'earnvids'].includes(sName)) {
+              const decUrl = Buffer.from(stream.url, 'base64').toString('utf8');
+              iframeString = `<iframe src="${decUrl}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
+            } else {
+              iframeString = `<iframe src="/player?url=${stream.url}&title=${encodeURIComponent(data.title)}&poster=${encodeURIComponent(pageImage)}" frameborder="0" scrolling="no" width="100%" height="100%" allowfullscreen="true"></iframe>`;
+            }
+            const base64Iframe = Buffer.from(iframeString).toString('base64');
+            %>
+            <option value="<%= index %>" data-em="<%= base64Iframe %>" <%= index === 0 ? 'selected': '' %>>
               <%= stream.name %>
-           </option>
-           <% }) %>
+            </option>
+            <%
+          }) %>
         </select>
-
-        <button class="light text-xs bg-card hover:bg-primary hover:text-white text-[var(--text-main)] px-3 py-2 rounded transition-colors whitespace-nowrap border border-[#444]">
-          Matikan Lampu
-        </button>
       </div>
 
       <div class="flex items-center gap-2 w-full lg:w-auto justify-center lg:justify-end flex-wrap">
-         
-         <% if (nav.prev) { %>
-           <a href="<%= nav.prev.url %>" class="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-4 py-2 rounded transition-colors">« Prev</a>
-         <% } else { %>
-           <span class="bg-darker text-muted text-xs font-bold px-4 py-2 rounded cursor-not-allowed border border-[#444]">« Prev</span>
-         <% } %>
-         
-         <a href="<%= nav.all %>" class="bg-card hover:bg-primary hover:text-white text-[var(--text-main)] text-xs font-bold px-4 py-2 rounded transition-colors border border-[#444]">Semua</a>
+        <% if (nav.prev) {
+          %>
+          <a href="<%= nav.prev.url %>" class="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-4 py-2 rounded transition-colors">« Prev</a>
+          <%
+        } else {
+          %>
+          <span class="bg-darker text-muted text-xs font-bold px-4 py-2 rounded cursor-not-allowed border border-[#444]">« Prev</span>
+          <%
+        } %>
 
-         <% if (parentAnime && parentAnime.episodes) { %>
-           <div class="relative hidden md:block">
-             <select onchange="if(this.value) window.location.href=this.value" class="bg-card text-[var(--text-main)] text-xs font-bold px-2 py-2 rounded border border-[#444] focus:border-primary outline-none cursor-pointer max-w-[150px] truncate">
-                <option value="" disabled>Pilih Episode</option>
-                <% parentAnime.episodes.forEach(ep => { 
-                     const isCurrent = (data.episodeSlug === ep.url); 
-                     let displayTitle = ep.title;
-                     const match = ep.title.match(/Episode\s+(\d+)/i);
-                     if(match) displayTitle = 'Ep ' + parseInt(match[1]);
+        <a href="<%= nav.all %>" class="bg-card hover:bg-primary hover:text-white text-[var(--text-main)] text-xs font-bold px-4 py-2 rounded transition-colors border border-[#444]">Semua</a>
+
+        <% if (parentAnime && parentAnime.episodes) {
+          %>
+          <div class="relative hidden md:block">
+            <select onchange="if(this.value) window.location.href=this.value" class="bg-card text-[var(--text-main)] text-xs font-bold px-2 py-2 rounded border border-[#444] focus:border-primary outline-none cursor-pointer max-w-[150px] truncate">
+              <option value="" disabled>Pilih Episode</option>
+              <% parentAnime.episodes.forEach(ep => {
+                const isCurrent = (data.episodeSlug === ep.url);
+                let displayTitle = ep.title;
+                const match = ep.title.match(/Episode\s+(\d+)/i);
+                if (match) displayTitle = 'Ep ' + parseInt(match[1]);
                 %>
-                   <option value="/anime<%= ep.url %>" <%= isCurrent ? 'selected' : '' %>>
-                      <%= displayTitle %>
-                   </option>
-                <% }) %>
-             </select>
-           </div>
-         <% } %>
-         
-         <% if (nav.next) { %>
-           <a href="<%= nav.next.url %>" class="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-4 py-2 rounded transition-colors">Next »</a>
-         <% } else { %>
-           <span class="bg-darker text-muted text-xs font-bold px-4 py-2 rounded cursor-not-allowed border border-[#444]">Next »</span>
-         <% } %>
-      </div>
+                <option value="/anime<%= ep.url %>" <%= isCurrent ? 'selected': '' %>>
+                  <%= displayTitle %>
+                </option>
+                <%
+              }) %>
+            </select>
+          </div>
+          <%
+        } %>
 
+        <% if (nav.next) {
+          %>
+          <a href="<%= nav.next.url %>" class="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-4 py-2 rounded transition-colors">Next »</a>
+          <%
+        } else {
+          %>
+          <span class="bg-darker text-muted text-xs font-bold px-4 py-2 rounded cursor-not-allowed border border-[#444]">Next »</span>
+          <%
+        } %>
+      </div>
     </div>
 
     <div class="p-5">
       <div class="flex flex-col md:flex-row gap-6">
-        
+
         <div class="w-full md:w-[200px] flex-shrink-0 mx-auto md:mx-0">
-           <img src="<%= pageImage %>" class="w-full rounded-md shadow-lg object-cover border border-[#33303f]" alt="<%= data.title %>">
-           
-           <div class="text-center mt-4">
-               <button id="singletonform" class="w-full bg-[#d9534f] hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-bold transition-colors shadow-md flex items-center justify-center gap-2">
-                 <i class="fas fa-exclamation-triangle"></i> Lapor Error!
-               </button>
-           </div>
+          <img src="<%= pageImage %>" class="w-full rounded-md shadow-lg object-cover border border-[#33303f]" alt="<%= data.title %>">
+          <div class="text-center mt-4">
+            <button id="singletonform" class="w-full bg-[#d9534f] hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-bold transition-colors shadow-md flex items-center justify-center gap-2">
+              <i class="fas fa-exclamation-triangle"></i> Lapor Error!
+            </button>
+          </div>
         </div>
 
         <div class="flex-1 min-w-0">
-            
-            <div class="mb-6">
-                <h2 class="text-lg font-bold text-[var(--text-main)] mb-2"><%= data.title %> Sub Indo</h2>
-                <p class="text-sm text-muted mb-1">
-                    <strong>Genre:</strong> 
-                    <% if (typeof parentAnime !== 'undefined' && parentAnime.genres) { %>
-                      <%= parentAnime.genres.join(', ') %>
-                    <% } %>
-                </p>
+
+          <div class="mb-6">
+            <h2 class="text-lg font-bold text-[var(--text-main)] mb-2"><%= data.title %> Sub Indo</h2>
+            <p class="text-sm text-muted mb-1">
+              <strong>Genre:</strong>
+              <% if (typeof parentAnime !== 'undefined' && parentAnime.genres) {
+                %>
+                <%= parentAnime.genres.join(', ') %>
+                <%
+              } %>
+            </p>
+          </div>
+
+          <% if (parentAnime && parentAnime.episodes && parentAnime.episodes.length > 0) {
+            %>
+            <div class="mb-8 border-b border-[#33303f] pb-6">
+              <h3 class="text-sm font-bold text-[var(--text-main)] mb-3 border-l-4 border-primary pl-3 uppercase">Daftar Episode</h3>
+              <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                <% parentAnime.episodes.forEach(ep => {
+                  const isCurrent = (data.episodeSlug === ep.url);
+                  let displayTitle = ep.title;
+                  const match = ep.title.match(/Episode\s+(\d+)/i);
+                  if (match) displayTitle = 'Episode ' + parseInt(match[1]);
+                  %>
+                  <a href="/anime<%= ep.url %>" class="block <%= isCurrent ? 'bg-primary text-white border-primary': 'bg-darker text-[var(--text-main)] border-[#33303f] hover:bg-primary hover:text-white hover:border-primary' %> border text-center py-1.5 px-1 text-[10px] font-bold rounded transition-colors truncate" title="<%= ep.title %>">
+                    <%= displayTitle %>
+                  </a>
+                  <%
+                }) %>
+              </div>
+            </div>
+            <%
+          } %>
+
+          <div class="space-y-4 mb-6">
+
+            <div class="mb-8 border-b border-[#33303f] pb-6">
+              <h4 class="text-xs font-bold text-primary mb-3 uppercase tracking-wider border-b border-[#33303f] pb-2">
+                <i class="fas fa-tags mr-1"></i> Keyword
+              </h4>
+              <p class="text-xs sm:text-sm text-gray-400 leading-relaxed text-justify break-words">
+                Download <%= data.title %> Subtitle Indonesia, Nonton <%= data.title %> Subtitle Indonesia, jangan lupa mengklik tombol like dan share ya. Selalu update di <%= siteName %>. Jangan lupa nonton update anime lainnya ya. doujindesu, hentaihaven, layaranime, nontonanimeid, nontonhentai, otakudesu, rajabokep, rajahentai, samehadaku
+              </p>
             </div>
 
-            <% if (parentAnime && parentAnime.episodes && parentAnime.episodes.length > 0) { %>
-              <div class="mb-8 border-b border-[#33303f] pb-6">
-                 <h3 class="text-sm font-bold text-[var(--text-main)] mb-3 border-l-4 border-primary pl-3 uppercase">Daftar Episode</h3>
-                 <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
-                    <% parentAnime.episodes.forEach(ep => { 
-                         const isCurrent = (data.episodeSlug === ep.url);
-                         let displayTitle = ep.title;
-                         const match = ep.title.match(/Episode\s+(\d+)/i);
-                         if (match) displayTitle = 'Episode ' + parseInt(match[1]);
-                    %>
-                      <a href="/anime<%= ep.url %>" class="block <%= isCurrent ? 'bg-primary text-white border-primary' : 'bg-darker text-[var(--text-main)] border-[#33303f] hover:bg-primary hover:text-white hover:border-primary' %> border text-center py-1.5 px-1 text-[10px] font-bold rounded transition-colors truncate" title="<%= ep.title %>">
-                         <%= displayTitle %>
-                      </a>
-                    <% }) %>
-                 </div>
-              </div>
-            <% } %>
-            
-            <h4 class="text-sm font-bold text-[var(--text-main)] mb-2 uppercase text-muted">Keyword</h4>
-            <p class="text-sm text-muted leading-relaxed mb-6 text-justify"> Download <%= data.title %>  Subtitle Indonesia, Nonton <%= data.title %>  Subtitle Indonesia, jangan lupa mengklik tombol like dan share ya.  selalu update di NekoPoi. Jangan lupa nonton update anime lainnya ya. doujindesu, hentaihaven, kingbokep, layaranime,nontonanimeid, nontonhentai, otakudesu, rajabokep, rajahentai, samehadaku
-            </p>
+            <div class="mb-8 border-b border-[#33303f] pb-6">
+              <h3 class="text-xs font-bold text-primary mb-2 uppercase tracking-wider border-b border-[#33303f] pb-2">
+                <i class="fas fa-book-open mr-1"></i> Sinopsis
+              </h3>
+              <p class="text-xs sm:text-sm text-gray-400 leading-relaxed text-justify break-words">
+                <%= (typeof parentAnime !== 'undefined' && parentAnime.synopsis) ? parentAnime.synopsis: '...' %>
+              </p>
+            </div>
 
-            <h3 class="text-sm font-bold text-[var(--text-main)] mb-2 uppercase text-muted">Sinopsis</h3>
-            <p class="text-sm text-muted leading-relaxed mb-6 text-justify">
-               <%= (typeof parentAnime !== 'undefined' && parentAnime.synopsis) ? parentAnime.synopsis : '...' %>
-            </p>
-            
-            <% if(filteredStreams && filteredStreams.length > 0) { %>
-              <div class="bg-darker p-4 rounded border border-[#33303f]">
-                <div class="mb-3 last:mb-0">
-                  <div class="flex items-center gap-3 mb-2">
-                      <span class="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded">Server / Download</span>
-                      <div class="h-px bg-[#33303f] flex-1"></div>
-                  </div>
+            <% if (filteredStreams && filteredStreams.length > 0) {
+              %>
+              <div class="mb-8 border-b border-[#33303f] pb-6">
+                <div class="mb-3">
+                  <h4 class="text-xs font-bold text-primary mb-3 uppercase tracking-wider border-b border-[#33303f] pb-2">
+                    <i class="fas fa-download mr-1"></i> Server / Download
+                  </h4>
                   <div class="flex flex-wrap gap-2">
-                    <% filteredStreams.forEach(stream => { %>
+                    <% filteredStreams.forEach(stream => {
+                      %>
                       <a href="/safelink?url=<%= stream.url %>" target="_blank" class="bg-card hover:bg-primary hover:text-white text-[var(--text-main)] text-[10px] px-3 py-1.5 rounded transition-colors border border-[#444]">
                         <%= stream.name %>
                       </a>
-                    <% }) %>
+                      <%
+                    }) %>
                   </div>
                 </div>
               </div>
-            <% } %>
+              <%
+            } %>
 
+          </div>
         </div>
       </div>
     </div>
@@ -228,7 +296,7 @@
         };
         (function() {
           var d = document, s = document.createElement('script');
-          s.src = 'https://hentaisubindo.disqus.com/embed.js'; 
+          s.src = 'https://hentaisubindo.disqus.com/embed.js';
           s.setAttribute('data-timestamp', +new Date());
           (d.head || d.body).appendChild(s);
         })();
@@ -237,71 +305,61 @@
 
   </article>
 
-  <% if (latestSeries && latestSeries.length > 0) { %>
+  <% if (latestSeries && latestSeries.length > 0) {
+    %>
     <div class="bg-card rounded-lg shadow-md border border-[#33303f] overflow-hidden mb-6">
       <div class="flex items-center justify-between p-4 border-b border-[#33303f]">
         <h3 class="text-lg font-medium text-[var(--text-main)] uppercase border-l-4 border-primary pl-3">Series Terbaru</h3>
         <a href="/hentai-list" class="text-xs font-bold bg-primary text-white px-3 py-1 rounded hover:bg-primary-hover">Lihat Semua</a>
       </div>
       <div class="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          <% latestSeries.forEach((anime) => { %>
-            <article class="group relative bg-darker rounded-md overflow-hidden border border-[#33303f] hover:border-primary hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-lg">
-              <a href="/anime/<%= encodeURIComponent(anime.pageSlug) %>" title="<%= anime.title %>">
-                
-                <div class="relative aspect-[2/3] overflow-hidden bg-gray-800">
-                  <img src="<%= anime.imageUrl || '/images/default.jpg' %>" 
-                       class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 lazy-load opacity-0" 
-                       data-src="<%= anime.imageUrl || '/images/default.jpg' %>" 
-                       alt="<%= anime.title %>">
-                  
-                  <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
-                     <i class="fas fa-play text-3xl text-white"></i>
-                  </div>
-
-                  <span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">
-                    <%= anime.info.Status || '?' %>
-                  </span>
+        <% latestSeries.forEach((anime) => {
+          %>
+          <article class="group relative bg-darker rounded-md overflow-hidden border border-[#33303f] hover:border-primary hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-lg">
+            <a href="/anime/<%= encodeURIComponent(anime.pageSlug) %>" title="<%= anime.title %>">
+              <div class="relative aspect-[2/3] overflow-hidden bg-gray-800">
+                <img src="<%= anime.imageUrl || '/images/default.jpg' %>"
+                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 lazy-load opacity-0"
+                data-src="<%= anime.imageUrl || '/images/default.jpg' %>"
+                alt="<%= anime.title %>">
+                <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                  <i class="fas fa-play text-3xl text-white"></i>
                 </div>
-        
-                <div class="p-3 flex flex-col h-[70px] justify-center">
-                  <h2 class="text-xs sm:text-sm font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors"><%= anime.title %></h2>
-                  <div class="flex justify-between items-end text-[10px] text-muted mt-1 border-t border-white/5 pt-1">
-                    <span>
-                      <% if (anime.type || (anime.info && anime.info.Type)) { %>
-                         <%= anime.type || anime.info.Type %>
-                      <% } else { %> TV <% } %>
-                    </span>
-                    <span>
-                      <% if (anime.released || (anime.info && anime.info.Released)) { %>
-                        <%= (anime.released || anime.info.Released).split(' ')[0] %>
-                      <% } else { %> ? <% } %>
-                    </span>
+                <span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">
+                  <%= anime.info.Status || '?' %>
+                </span>
+              </div>
+              <div class="p-3 flex flex-col h-[70px] justify-center">
+                <h2 class="text-xs sm:text-sm font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors"><%= anime.title %></h2>
+                <div class="flex justify-between items-end text-[10px] text-muted mt-1 border-t border-white/5 pt-1">
+                  <span><% if (anime.type || (anime.info && anime.info.Type)) {
+                    %><%= anime.type || anime.info.Type %><%
+                  } else {
+                    %> TV <%
+                  } %></span>
+                  <span><% if (anime.released || (anime.info && anime.info.Released)) {
+                    %><%= (anime.released || anime.info.Released).split(' ')[0] %><%
+                  } else {
+                    %> ? <%
+                  } %></span>
                 </div>
-              </a>
-            </article>
-        <% }) %>
+              </div>
+            </a>
+          </article>
+          <%
+        }) %>
       </div>
     </div>
-  <% } %>
+    <%
+  } %>
 
 </main>
 
-<%- include('partials/sidebar', { page: page }) %>
-
-<div id="shadow" class="fixed inset-0 bg-black/95 z-[999] hidden transition-opacity duration-300"></div>
+<%- include('partials/sidebar', {
+  page: page
+}) %>
 
 <script>
-  $(document).ready(function () {
-    // Fitur Matikan Lampu
-    $(".light").click(function () {
-      $("#shadow").fadeToggle();
-      $(this).toggleClass("relative z-[1001] bg-white text-black hover:bg-gray-200 border-transparent");
-      var text = $(this).text().trim();
-      if (text === "Matikan Lampu") $(this).text("Hidupkan Lampu");
-      else $(this).text("Matikan Lampu");
-    });
-  });
-
   // Ganti Server
   function loadMi(el) {
     var embed = el.getAttribute('data-em');
@@ -312,16 +370,25 @@
   // Render Iframe
   function load_embed(embed) {
     var player = jQuery("#pembed");
-    player.css({'background': '#000 url(/images/loading.svg) center no-repeat', 'background-size': '50px'});
-    player.html(""); 
+    player.css({
+      'background': '#000 url(/loader.svg) center no-repeat',
+      'background-size': '50px'
+    });
+    player.html("");
     if (embed) {
-        try {
-            var decoded = atob(embed);
-            player.html(decoded);
-            setTimeout(function(){ player.removeAttr('style'); }, 5000);
-        } catch (e) { console.error("Error player:", e); }
+      try {
+        var decoded = atob(embed);
+        player.html(decoded);
+        setTimeout(function() {
+          player.removeAttr('style');
+        }, 5000);
+      } catch (e) {
+        console.error("Error player:", e);
+      }
     }
   }
 </script>
 
-<%- include('partials/footer', { page: page }) %>
+<%- include('partials/footer', {
+  page: page
+}) %>
