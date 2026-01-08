@@ -108,6 +108,28 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use((req, res, next) => {
+  const isMaintenance = process.env.MAINTENANCE_MODE === 'true';
+  if (isMaintenance) {
+    if (req.path.startsWith('/admin') || 
+        req.path.startsWith('/login') ||
+        req.path.startsWith('/logout') || // Penting jika admin ingin logout
+        req.path.startsWith(`/${UPLOAD_WEB_PATH_NAME}`) || // Folder images
+        req.path === '/maintenance') {
+      return next();
+    }
+    // Jika user mengakses halaman lain saat maintenance, lempar ke /maintenance
+    return res.redirect('/maintenance');
+  }
+
+  // Jika TIDAK maintenance, tapi user iseng buka /maintenance, lempar ke home
+  if (!isMaintenance && req.path === '/maintenance') {
+    return res.redirect('/');
+  }
+
+  next();
+});
+
 const isLoggedIn = (req, res, next) => {
   if (req.session && req.session.userId) {
     return next();
@@ -889,6 +911,17 @@ app.get('/anime/:slug', async (req, res) => {
       latestSeries
     });
   } catch (error) { res.status(500).send(error.message); }
+});
+
+app.get('/maintenance', (req, res) => {
+  res.render('maintenance', {
+    page: 'maintenance',
+    pageTitle: `Under Maintenance - ${siteName}`,
+    pageDescription: 'Website sedang dalam perbaikan.',
+    pageImage: '/images/default.jpg', // Pastikan gambar ini ada atau ganti dengan link lain
+    pageUrl: SITE_URL + '/maintenance',
+    query: ''
+  });
 });
 
 
