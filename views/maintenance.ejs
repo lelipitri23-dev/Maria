@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow"> 
+    <title><%= pageTitle %></title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            padding: 2rem;
+        }
+        h1 { font-size: 2.5rem; color: #ff4757; margin-bottom: 1rem; }
+        p { font-size: 1.1rem; color: #ccc; line-height: 1.6; }
+        .icon { font-size: 4rem; margin-bottom: 1rem; }
+        /* Animasi berkedip pelan untuk icon */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .icon { animation: pulse 2s infinite; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🛠️</div>
+        <h1>Sedang Dalam Perbaikan</h1>
+        <p>Website <strong><%= siteName %></strong> sedang melakukan pemeliharaan sistem.</p>
+        <p>Kami akan segera kembali. Silakan cek lagi nanti.</p>
+        <br>
+        <p><small>&copy; <%= siteName %></small></p>
+    </div>
+</body>
+</html>
