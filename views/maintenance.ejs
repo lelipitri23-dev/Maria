@@ -5,42 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow"> 
     <title><%= pageTitle %></title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
     <style>
         body {
-            background-color: #1a1a1a;
-            color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            text-align: center;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
         }
-        .container {
-            max-width: 600px;
-            padding: 2rem;
+        .spBgcover {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
-        h1 { font-size: 2.5rem; color: #ff4757; margin-bottom: 1rem; }
-        p { font-size: 1.1rem; color: #ccc; line-height: 1.6; }
-        .icon { font-size: 4rem; margin-bottom: 1rem; }
-        /* Animasi berkedip pelan untuk icon */
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        .sp-bg-slideshow {
+            background-color: #ffffff; 
         }
-        .icon { animation: pulse 2s infinite; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="icon">🛠️</div>
-        <h1>Sedang Dalam Perbaikan</h1>
-        <p>Website <strong><%= siteName %></strong> sedang melakukan pemeliharaan sistem.</p>
-        <p>Kami akan segera kembali. Silakan cek lagi nanti.</p>
-        <br>
-        <p><small>&copy; <%= siteName %></small></p>
+
+<body class="spBgcover sp-h-full sp-antialiased sp-bg-slideshow h-screen flex flex-col items-center justify-center bg-white m-0 overflow-hidden">
+
+    <div id="sp-page" class="w-full h-full flex justify-center items-center p-4">
+        
+        <section id="sp-ks8a8s" class="w-full max-w-[600px] p-4 bg-white rounded-lg">
+            
+            <div id="sp-vw3kvy" class="flex flex-col items-center justify-center w-full mx-auto">
+               
+               <div id="sp-ggzp6w" class="w-full text-center">
+                  
+                  <figure id="sp-d9eqcw" class="mx-auto mb-6">
+                      <img src="//m.nekopoi.bond/android-chrome-512x512.png" alt="Maintenance Logo" class="w-32 h-auto mx-auto drop-shadow-md">
+                  </figure>
+
+                  <div id="sp-jdj1i9" class="text-base text-[#321b26] mb-8 space-y-2">
+                     <p class="font-semibold text-lg">Sedang Dalam Perbaikan</p>
+                     <p>Website <strong><%= siteName %></strong> sedang melakukan pemeliharaan sistem.</p>
+      
+                     <p>Kami akan segera kembali. Silakan cek lagi nanti.</p>
+                     <p>Silahkan gunakan aplikasi WibuHub.</p>
+                     <p class="text-sm text-gray-500">(Akses tanpa perlu VPN)</p>
+                  </div>
+                  
+                  <div class="text-center">
+                      <a href="https://wibuhubapk.web.app/" id="sp-af4bhe" target="" rel="noopener noreferrer" class="inline-flex items-center justify-center text-[20px] bg-[#dc2757] text-white py-3 px-8 rounded-full shadow-lg hover:bg-[#c01f4a] hover:shadow-xl transition duration-300 transform hover:-translate-y-1 no-underline">
+                          <i class="fab fa-android mr-3 text-2xl"></i>
+                          <span class="font-medium">Download APK</span>
+                      </a>
+                  </div>
+
+               </div>
+            </div>
+         </section>
+         
     </div>
+
 </body>
 </html>
