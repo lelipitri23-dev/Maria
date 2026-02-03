@@ -111,11 +111,11 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   const isMaintenance = process.env.MAINTENANCE_MODE === 'true';
   if (isMaintenance) {
-    if (req.path.startsWith('/admin') || 
-        req.path.startsWith('/login') ||
-        req.path.startsWith('/logout') || // Penting jika admin ingin logout
-        req.path.startsWith(`/${UPLOAD_WEB_PATH_NAME}`) || // Folder images
-        req.path === '/maintenance') {
+    if (req.path.startsWith('/admin') ||
+      req.path.startsWith('/login') ||
+      req.path.startsWith('/logout') || // Penting jika admin ingin logout
+      req.path.startsWith(`/${UPLOAD_WEB_PATH_NAME}`) || // Folder images
+      req.path === '/maintenance') {
       return next();
     }
     // Jika user mengakses halaman lain saat maintenance, lempar ke /maintenance
@@ -261,12 +261,12 @@ app.get('/admin/anime', isAdmin, async (req, res) => {
     const skipVal = (page - 1) * limit;
     const searchQuery = req.query.search || '';
     const query = searchQuery ? { $or: [{ title: new RegExp(searchQuery, 'i') }, { pageSlug: new RegExp(searchQuery, 'i') }] } : {};
-    
+
     const [animes, totalCount] = await Promise.all([
       Anime.find(query).sort({ updatedAt: -1 }).skip(skipVal).limit(limit).lean(),
       Anime.countDocuments(query)
     ]);
-    
+
     res.render('admin/anime-list', {
       animes, page: 'admin-anime-list', pageTitle: `Admin Anime List`,
       currentPage: page, totalPages: Math.ceil(totalCount / limit),
@@ -297,12 +297,12 @@ app.post('/admin/anime/:slug/delete', isAdmin, async (req, res) => {
 
     await Episode.deleteMany({ animeSlug: pageSlug });
     await Anime.deleteOne({ pageSlug });
-    
+
     if (anime.episodes) {
       const epIds = anime.episodes.map(e => e._id);
       await Comment.deleteMany({ episode: { $in: epIds } });
     }
-    
+
     res.redirect('/admin/anime');
   } catch (error) { res.status(500).send(error.message); }
 });
@@ -361,11 +361,11 @@ app.post('/admin/api/remote-upload', isAdmin, delay, async (req, res) => {
   try {
     const doodRes = await axios.get(`https://doodapi.co/api/upload/url?key=${DOOD_API_KEY}&url=${encodeURIComponent(videoUrl)}`);
     if (doodRes.data.status !== 200 || !doodRes.data.result) throw new Error('DoodAPI Error');
-    
+
     const fileCode = doodRes.data.result.filecode;
     const newStreamLink = { name: "Mirror", url: `https://dsvplay.com/e/${fileCode}` };
     const newDownloadLink = { host: "DoodStream", url: `https://dsvplay.com/d/${fileCode}` };
-    
+
     await Episode.findOneAndUpdate(
       { episodeSlug },
       { $push: { streaming: newStreamLink, downloads: { quality: "480p", links: [newDownloadLink] } } },
@@ -424,7 +424,7 @@ app.post('/admin/episode/:slug(*)/edit', isAdmin, async (req, res) => {
       title: formData.title, thumbnailUrl: formData.thumbnailUrl,
       createdAt: new Date(), updatedAt: new Date()
     };
-    
+
     dataToUpdate.streaming = (formData.streams || []).filter(s => s.name && s.url).map(s => ({ name: s.name.trim(), url: s.url.trim() }));
     dataToUpdate.downloads = (formData.downloads || []).filter(q => q.quality && q.links.length).map(q => ({
       quality: q.quality.trim(), links: q.links.filter(l => l.host && l.url).map(l => ({ host: l.host.trim(), url: l.url.trim() }))
@@ -509,21 +509,44 @@ app.get('/random', async (req, res) => {
 
 app.get('/jadwal', (req, res) => res.render('jadwal', { page: 'jadwal', pageTitle: `Jadwal - ${siteName}`, pageDescription: '', pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl }));
 
-app.get('/', (req, res) => res.render('landing', { page: 'landing', pageTitle: siteName, pageDescription: '', pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL, query: '' }));
+app.get('/', async (req, res) => {
+  try {
+    // Ambil 12 Anime Trending berdasarkan View Terbanyak
+    const trendingAnime = await Anime.find()
+      .sort({ viewCount: -1 })
+      .limit(12)
+      .select('pageSlug imageUrl title info.Type info.Status viewCount')
+      .lean();
+
+    res.render('landing', {
+      page: 'landing',
+      pageTitle: `${siteName} - Nonton Hentai Terbaru Subtitle Indonesia`, 
+      pageDescription: 'situs nonton anime, donghua & hentai sub Indo gratis terlengkap. Streaming anime favoritmu online terbaru subtitle Indonesia dengan kualitas HD.', 
+      pageImage: `${SITE_URL}/images/default.jpg`, 
+      pageUrl: SITE_URL, 
+      query: '',
+      trendingAnime: encodeAnimeSlugs(trendingAnime)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Error loading landing page');
+  }
+});
 
 app.get('/home', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const skip = (page - 1) * ITEMS_PER_PAGE;
+    const titleSuffix = page > 1 ? ` - Halaman ${page}` : '';
 
     const [episodes, totalCount, latestSeries] = await Promise.all([
       Episode.find().sort({ updatedAt: -1 }).skip(skip).limit(20).lean(),
       Episode.countDocuments(),
-      Anime.find().sort({ createdAt: -1 }).limit(12).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
+      Anime.find().sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
     res.render('home', {
-      page: 'home', pageTitle: `${siteName} - AV Hentai Subtitle Indonesia`,
+      page: 'home', pageTitle: `${siteName}${titleSuffix} - AV Hentai Subtitle Indonesia`,
       pageDescription: 'NekoPoi Nonton anime hentai subtitle indonesia. Nikmati sensasi menonton anime hentai, ecchi, uncensored, sub indo kualitas video HD 1080p 720p 480p.',
       pageImage: `${SITE_URL}/images/default.jpg`, pageUrl: SITE_URL + req.originalUrl,
       episodes: episodes.map(ep => ({
@@ -550,28 +573,28 @@ app.get('/search', async (req, res) => {
     const q = req.query.q;
     const page = parseInt(req.query.page) || 1;
     if (!q) return res.redirect('/');
-    
+
     const query = { title: new RegExp(q, 'i') };
     const [animes, totalCount] = await Promise.all([
       Anime.find(query).sort({ _id: -1 }).skip((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).lean(),
       Anime.countDocuments(query)
     ]);
-    
+
     // Logic Judul & URL
     const titleSuffix = page > 1 ? ` - Halaman ${page}` : '';
     const pageTitle = `Cari: ${q}${titleSuffix} - ${siteName}`;
     const currentUrl = SITE_URL + `/search?q=${encodeURIComponent(q)}${page > 1 ? `&page=${page}` : ''}`;
 
     res.render('list', {
-      animes: encodeAnimeSlugs(animes), 
-      pageTitle: pageTitle, 
-      query: q, 
+      animes: encodeAnimeSlugs(animes),
+      pageTitle: pageTitle,
+      query: q,
       page: 'list',
-      pageDescription: '', pageImage: '', 
+      pageDescription: '', pageImage: '',
       pageUrl: currentUrl, // URL Dinamis
       currentPage: page,
-      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), 
-      baseUrl: `/search?q=${encodeURIComponent(q)}`, 
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE),
+      baseUrl: `/search?q=${encodeURIComponent(q)}`,
       totalCount
     });
   } catch (e) { res.status(500).send(e.message); }
@@ -582,7 +605,7 @@ app.get('/genre/:genreSlug', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     let allGenres = appCache.get('allGenres');
     if (!allGenres) { allGenres = await Anime.distinct('genres'); appCache.set('allGenres', allGenres); }
-    
+
     // Cari nama genre asli
     const originalGenre = allGenres.find(g => slugify(g) === req.params.genreSlug);
     if (!originalGenre) return res.status(404).send('Genre not found');
@@ -599,21 +622,21 @@ app.get('/genre/:genreSlug', async (req, res) => {
     const titleSuffix = page > 1 ? ` - Halaman ${page}` : '';
     const pageTitle = `Genre: ${originalGenre}${titleSuffix} - ${siteName}`;
     const pageUrl = SITE_URL + `/genre/${req.params.genreSlug}${page > 1 ? `?page=${page}` : ''}`;
-    
+
     // DESKRIPSI BARU
     const description = `Kumpulan Hentai Subtitle Indonesia Genre ${originalGenre}${titleSuffix} Terbaru, Nekopoi, rajahentai, minioppai,subnime hanya di ${siteName}.`;
 
     res.render('list', {
-      animes: encodeAnimeSlugs(animes), 
-      pageTitle: pageTitle, 
-      query: '', 
+      animes: encodeAnimeSlugs(animes),
+      pageTitle: pageTitle,
+      query: '',
       page: 'list',
       pageDescription: description,
-      pageImage: '', 
+      pageImage: '',
       pageUrl: pageUrl,
       currentPage: page,
-      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), 
-      baseUrl: `/genre/${req.params.genreSlug}`, 
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE),
+      baseUrl: `/genre/${req.params.genreSlug}`,
       totalCount
     });
   } catch (e) { res.status(500).send(e.message); }
@@ -641,19 +664,19 @@ app.get('/status/:statusSlug', async (req, res) => {
     const pageTitle = `Status: ${originalStatus}${titleSuffix} - ${siteName}`;
     const currentUrl = SITE_URL + `/status/${req.params.statusSlug}${page > 1 ? `?page=${page}` : ''}`;
 
-     const description = `Kumpulan Hentai Subtitle Indonesia Status ${originalStatus}${titleSuffix} Terbaru, Nekopoi, rajahentai, minioppai,subnime hanya di ${siteName}.`;
+    const description = `Kumpulan Hentai Subtitle Indonesia Status ${originalStatus}${titleSuffix} Terbaru, Nekopoi, rajahentai, minioppai,subnime hanya di ${siteName}.`;
 
     res.render('list', {
-      animes: encodeAnimeSlugs(animes), 
-      pageTitle: pageTitle, 
-      query: '', 
+      animes: encodeAnimeSlugs(animes),
+      pageTitle: pageTitle,
+      query: '',
       page: 'list',
       pageDescription: description,
-      pageImage: '', 
+      pageImage: '',
       pageUrl: currentUrl, // URL Dinamis
       currentPage: page,
-      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), 
-      baseUrl: `/status/${req.params.statusSlug}`, 
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE),
+      baseUrl: `/status/${req.params.statusSlug}`,
       totalCount
     });
   } catch (e) { res.status(500).send(e.message); }
@@ -681,16 +704,16 @@ app.get('/type/:typeSlug', async (req, res) => {
     const description = `Kumpulan Hentai Subtitle Indonesia Type ${originalType}${titleSuffix} Terbaru, Nekopoi, rajahentai, minioppai,subnime hanya di ${siteName}.`;
 
     res.render('list', {
-      animes: encodeAnimeSlugs(animes), 
-      pageTitle: pageTitle, 
-      query: '', 
+      animes: encodeAnimeSlugs(animes),
+      pageTitle: pageTitle,
+      query: '',
       page: 'list',
       pageDescription: description,
-      pageImage: '', 
+      pageImage: '',
       pageUrl: currentUrl, // URL Dinamis
       currentPage: page,
-      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), 
-      baseUrl: `/type/${req.params.typeSlug}`, 
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE),
+      baseUrl: `/type/${req.params.typeSlug}`,
       totalCount
     });
   } catch (e) { res.status(500).send(e.message); }
@@ -717,15 +740,15 @@ app.get('/studio/:studioSlug', async (req, res) => {
     const currentUrl = SITE_URL + `/studio/${req.params.studioSlug}${page > 1 ? `?page=${page}` : ''}`;
 
     res.render('list', {
-      animes: encodeAnimeSlugs(animes), 
-      pageTitle: pageTitle, 
-      query: '', 
+      animes: encodeAnimeSlugs(animes),
+      pageTitle: pageTitle,
+      query: '',
       page: 'list',
-      pageDescription: '', pageImage: '', 
+      pageDescription: '', pageImage: '',
       pageUrl: currentUrl, // URL Dinamis
       currentPage: page,
-      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), 
-      baseUrl: `/studio/${req.params.studioSlug}`, 
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE),
+      baseUrl: `/studio/${req.params.studioSlug}`,
       totalCount
     });
   } catch (e) { res.status(500).send(e.message); }
@@ -748,16 +771,16 @@ app.get('/tahun/:year', async (req, res) => {
     const description = `Download Hentai Dari Tahun ${year}${titleSuffix} terbaru hanya di ${siteName}.`;
 
     res.render('list', {
-      animes: encodeAnimeSlugs(animes), 
-      pageTitle: pageTitle, 
-      query: '', 
+      animes: encodeAnimeSlugs(animes),
+      pageTitle: pageTitle,
+      query: '',
       page: 'list',
       pageDescription: description,
-      pageImage: '', 
+      pageImage: '',
       pageUrl: currentUrl, // URL Dinamis
       currentPage: page,
-      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), 
-      baseUrl: `/tahun/${year}`, 
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE),
+      baseUrl: `/tahun/${year}`,
       totalCount
     });
   } catch (e) { res.status(500).send(e.message); }
@@ -769,7 +792,7 @@ app.get('/hentai-list', async (req, res) => {
     const [animes, totalCount, latestSeries] = await Promise.all([
       Anime.find().sort({ _id: 1 }).skip((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE).lean(),
       Anime.countDocuments(),
-      Anime.find().sort({ createdAt: -1 }).limit(12).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
+      Anime.find().sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
     // Logic Judul & URL
@@ -779,15 +802,15 @@ app.get('/hentai-list', async (req, res) => {
     const description = `Kumpulan Hentai Subtitle Indonesia Terbaru, Nekopoi, rajahentai, minioppai,subnime, ${titleSuffix}${titleSuffix} terbaru hanya di ${siteName}.`;
 
     res.render('hentai-list', {
-      animes: encodeAnimeSlugs(animes), 
-      page: 'hentai-list', 
+      animes: encodeAnimeSlugs(animes),
+      page: 'hentai-list',
       pageTitle: pageTitle,
       pageDescription: description,
-      pageImage: '', 
+      pageImage: '',
       pageUrl: currentUrl, // URL Dinamis
       currentPage: page,
-      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE), 
-      baseUrl: '/hentai-list', 
+      totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE),
+      baseUrl: '/hentai-list',
       totalCount,
       latestSeries: encodeAnimeSlugs(latestSeries)
     });
@@ -814,48 +837,48 @@ app.get('/tahun-list', async (req, res) => {
 app.get('/anime/:animeId/:episodeNum', async (req, res) => {
   try {
     const episodeSlug = `/${req.params.animeId}/${req.params.episodeNum}`;
-    
+
     // Ambil semua data yang diperlukan secara paralel
     const [episodeData, parentAnime, recommendations, latestSeries] = await Promise.all([
       Episode.findOne({ episodeSlug }).lean(),
       Anime.findOne({ "episodes.url": episodeSlug }).lean(),
       Anime.aggregate([{ $sample: { size: 7 } }]),
-      Anime.find({}).sort({ createdAt: -1 }).limit(12).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
+      Anime.find({}).sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
     // Jika episode tidak ditemukan, tampilkan 404
     if (!episodeData) {
-      return res.status(404).render('404', { 
-        page: '404', pageTitle: '404 - Tidak Ditemukan', pageDescription: '', 
-        pageImage: '', pageUrl: '', query: '' 
+      return res.status(404).render('404', {
+        page: '404', pageTitle: '404 - Tidak Ditemukan', pageDescription: '',
+        pageImage: '', pageUrl: '', query: ''
       });
     }
 
     // Update View Count Anime Induk (Tanpa mengubah timestamp update)
     if (parentAnime) {
       Anime.updateOne(
-        { _id: parentAnime._id }, 
-        { $inc: { viewCount: 1 } }, 
+        { _id: parentAnime._id },
+        { $inc: { viewCount: 1 } },
         { timestamps: false }
-      ).exec().catch(() => {});
+      ).exec().catch(() => { });
     }
     if (episodeData.streaming) {
-      episodeData.streaming = episodeData.streaming.map(s => ({ 
-        ...s, 
-        url: s.url ? Buffer.from(s.url).toString('base64') : null 
+      episodeData.streaming = episodeData.streaming.map(s => ({
+        ...s,
+        url: s.url ? Buffer.from(s.url).toString('base64') : null
       }));
     }
     if (episodeData.downloads) {
-      episodeData.downloads = episodeData.downloads.map(q => ({ 
-        ...q, 
-        links: q.links.map(l => ({ ...l, url: l.url ? Buffer.from(l.url).toString('base64') : null })) 
+      episodeData.downloads = episodeData.downloads.map(q => ({
+        ...q,
+        links: q.links.map(l => ({ ...l, url: l.url ? Buffer.from(l.url).toString('base64') : null }))
       }));
     }
     const nav = { prev: null, next: null, all: null };
     if (parentAnime) {
       nav.all = `/anime/${parentAnime.pageSlug ? encodeURIComponent(parentAnime.pageSlug) : ''}`;
       const idx = parentAnime.episodes.findIndex(ep => ep.url === episodeSlug);
-      
+
       if (idx > -1) {
         if (idx > 0) {
           nav.prev = { ...parentAnime.episodes[idx - 1], url: `/anime${parentAnime.episodes[idx - 1].url}` };
@@ -866,21 +889,21 @@ app.get('/anime/:animeId/:episodeNum', async (req, res) => {
       }
     }
     res.render('nonton', {
-      data: episodeData, 
-      nav: nav, 
-      recommendations: encodeAnimeSlugs(recommendations), 
+      data: episodeData,
+      nav: nav,
+      recommendations: encodeAnimeSlugs(recommendations),
       page: 'nonton',
       pageTitle: `${episodeData.title} Subtitle Indonesia - ${siteName}`,
-      pageDescription: `Nonton ${episodeData.title} Subtitle Indonesia tersedia dalam berbagai resolusi, mulai dari 360p hingga 1080p, nekopoi,rajahentai,minioppi,subnime ${parentAnime?.synopsis || ''}`,
+      pageDescription: `Nonton ${episodeData.title} Subtitle Indonesia ${parentAnime?.synopsis || ''}`,
       pageImage: parentAnime?.imageUrl || '',
-      pageUrl: SITE_URL + req.originalUrl, 
-      parentAnime: parentAnime, 
+      pageUrl: SITE_URL + req.originalUrl,
+      parentAnime: parentAnime,
       latestSeries: latestSeries
     });
 
-  } catch (error) { 
+  } catch (error) {
     console.error("Nonton Error:", error);
-    res.status(500).send(error.message); 
+    res.status(500).send(error.message);
   }
 });
 
@@ -891,23 +914,23 @@ app.get('/anime/:slug', async (req, res) => {
     const [animeData, recommendations, latestSeries] = await Promise.all([
       Anime.findOne({ pageSlug }).lean(),
       Anime.aggregate([{ $match: { pageSlug: { $ne: pageSlug } } }, { $sample: { size: 8 } }]),
-      Anime.find().sort({ createdAt: -1 }).limit(12).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
+      Anime.find().sort({ createdAt: -1 }).limit(10).select('pageSlug imageUrl title info.Type info.Released info.Status').lean()
     ]);
 
     if (!animeData) return res.status(404).render('404', { page: '404', pageTitle: '404', pageDescription: '', pageImage: '', pageUrl: '', query: '' });
-    Anime.updateOne({ pageSlug }, { $inc: { viewCount: 1 } }, { timestamps: false }).exec().catch(() => {});
+    Anime.updateOne({ pageSlug }, { $inc: { viewCount: 1 } }, { timestamps: false }).exec().catch(() => { });
 
     const [encodedMainData] = encodeAnimeSlugs([animeData]);
     encodedMainData.episodes = animeData.episodes?.map(ep => ({ ...ep, url: `/anime${ep.url}` })) || [];
 
     res.render('anime', {
-      data: encodedMainData, 
-      recommendations: encodeAnimeSlugs(recommendations), 
+      data: encodedMainData,
+      recommendations: encodeAnimeSlugs(recommendations),
       page: 'anime',
-      pageTitle: `${animeData.title} Subtitle Indonesia - ${siteName}`, 
-      pageDescription: `Nonton ${animeData.title} Subtitle Indonesia di ${siteName}. kamu juga bisa download gratis ${animeData.title} Sub Indo, jangan lupa ya untuk nonton streaming online berbagai kualitas 720P 360P 240P 480P sesuai koneksi kamu untuk menghemat kuota internet, ${animeData.title} di ${siteName} MP4 MKV hardsub softsub subtitle bahasa Indonesia sudah terdapat di dalam video.`,
+      pageTitle: `${animeData.title} Subtitle Indonesia - ${siteName}`,
+      pageDescription: `Nonton ${animeData.title} Subtitle Indonesia di ${siteName}. kamu juga bisa download gratis ${animeData.title} Sub Indo, jangan lupa ya untuk nonton streaming online berbagai kualitas, sesuai koneksi kamu untuk menghemat kuota internet di ${siteName}`,
       pageImage: encodedMainData.imageUrl,
-      pageUrl: SITE_URL + req.originalUrl, 
+      pageUrl: SITE_URL + req.originalUrl,
       latestSeries
     });
   } catch (error) { res.status(500).send(error.message); }
@@ -1113,15 +1136,15 @@ app.get('/sitemap-taxonomies.xml', async (req, res) => {
   if (!types) types = await Anime.distinct('info.Type');
   if (!studios) studios = await Anime.distinct('info.Studio');
   if (!dates) dates = await Anime.distinct('info.Released');
-  
+
   const years = [...new Set(dates.map(d => d.match(/(\d{4})/) ? d.match(/(\d{4})/)[1] : null).filter(Boolean))];
   let xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
-  
+
   genres.forEach(g => xml += `<url><loc>${SITE_URL}/genre/${slugify(g)}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`);
   types.forEach(t => xml += `<url><loc>${SITE_URL}/type/${slugify(t)}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`);
   studios.forEach(s => xml += `<url><loc>${SITE_URL}/studio/${slugify(s)}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`);
   years.forEach(y => xml += `<url><loc>${SITE_URL}/tahun/${y}</loc><changefreq>yearly</changefreq><priority>0.6</priority></url>`);
-  
+
   res.header('Content-Type', 'application/xml');
   res.send(xml + '</urlset>');
 });
