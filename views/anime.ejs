@@ -6,7 +6,7 @@
     <header class="p-5 border-b border-[#33303f]">
       <h1 class="text-xl md:text-2xl font-bold text-[var(--text-main)] mb-1"><%= data.title %> Subtitle Indonesia</h1>
       <div class="text-xs text-muted">
-         <span>Admin</span> • <span><%= new Date(data.updatedAt || Date.now()).toLocaleString('id-ID') %></span>
+         <span><%= (typeof siteName !== 'undefined') ? siteName : 'Nekopoi' %></span> • <span><%= new Date(data.updatedAt || Date.now()).toLocaleString('id-ID') %></span>
       </div>
     </header>
 
@@ -124,7 +124,7 @@
         <h3 class="text-lg font-medium text-[var(--text-main)] uppercase border-l-4 border-primary pl-3">Series Terbaru</h3>
         <a href="/hentai-list" class="text-xs font-bold bg-primary text-white px-3 py-1 rounded hover:bg-primary-hover">Lihat Semua</a>
       </div>
-      <div class="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4">
+      <div class="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <% latestSeries.forEach((anime) => { %>
             <article class="group relative bg-darker rounded-md overflow-hidden border border-[#33303f] hover:border-primary hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-lg">
               <a href="/anime/<%= encodeURIComponent(anime.pageSlug) %>" title="<%= anime.title %>">

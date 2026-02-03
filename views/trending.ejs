@@ -52,27 +52,23 @@
                       </div>
                   </div>
 
-                  <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 backdrop-blur-[1px]">
-                    <div class="w-10 h-10 rounded-full bg-primary border-2 border-white text-white flex items-center justify-center transform scale-0 group-hover:scale-100 transition-transform duration-300">
-                      <i class="fas fa-play ml-1"></i>
-                    </div>
+                  <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                     <i class="fas fa-play text-3xl text-white"></i>
                   </div>
 
                   <span class="absolute bottom-0 left-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tr z-10 backdrop-blur-sm flex items-center gap-1">
-                    <i class="fas fa-eye text-[8px]"></i> <%= anime.viewCount || 0 %>
+                    <i class="fas fa-eye text-[8px]"></i> <%= typeof formatCompactNumber==='function' ? formatCompactNumber(anime.viewCount || 0):
+                        (anime.viewCount || 0) %>
                   </span>
                   
-                  <span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">
-                    <%= anime.status || (anime.info ? anime.info.Status : '?') %>
+                  span class="absolute bottom-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-tl z-10 backdrop-blur-sm">
+                    <%= anime.info.Status || '?' %>
                   </span>
                 </div>
-
-                <div class="p-2 md:p-3 flex flex-col h-[80px] justify-between">
-                  <h2 class="text-xs sm:text-sm font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-                    <%= anime.title %>
-                  </h2>
-                  
-                  <div class="flex justify-between items-end text-[10px] text-muted mt-1 border-t border-[#33303f] pt-1">
+        
+                <div class="p-3 flex flex-col h-[70px] justify-center">
+                  <h2 class="text-xs sm:text-sm font-semibold text-[var(--text-main)] line-clamp-2 leading-snug group-hover:text-primary transition-colors"><%= anime.title %></h2>
+                  <div class="flex justify-between items-end text-[10px] text-muted mt-1 border-t border-white/5 pt-1">
                     <span>
                       <% if (anime.type || (anime.info && anime.info.Type)) { %>
                          <%= anime.type || anime.info.Type %>
@@ -83,7 +79,6 @@
                         <%= (anime.released || anime.info.Released).split(' ')[0] %>
                       <% } else { %> ? <% } %>
                     </span>
-                  </div>
                 </div>
               </a>
             </article>
